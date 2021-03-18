@@ -19,9 +19,60 @@ from yolov3.configs import *
 from yolov3.yolov4 import *
 from tensorflow.python.saved_model import tag_constants
 
+def _load_yolov2_weights(model, weights_file):
+    class WeightReader:
+        def __init__(self, weight_file):
+            self.offset = 4
+            self.all_weights = np.fromfile(weight_file, dtype='float32')
+            
+        def read_bytes(self, size):
+            self.offset = self.offset + size
+            return self.all_weights[self.offset-size:self.offset]
+        
+        def reset(self):
+            self.offset = 4
+
+    weight_reader = WeightReader(weights_file)
+    weight_reader.reset()
+    nb_conv = 18
+
+    for i in range(1, nb_conv+1):
+        conv_layer_name = f'conv_{i}'
+        conv_layer = model.get_layer(conv_layer_name)
+        conv_layer.trainable = True
+        
+        norm_layer_name = f'norm_{i}'
+            
+        norm_layer = model.get_layer(norm_layer_name)
+        norm_layer.trainable = True
+        
+        size = np.prod(norm_layer.get_weights()[0].shape)
+
+        beta  = weight_reader.read_bytes(size)
+        gamma = weight_reader.read_bytes(size)
+        mean  = weight_reader.read_bytes(size)
+        var   = weight_reader.read_bytes(size)
+
+        weights = norm_layer.set_weights([gamma, beta, mean, var])       
+            
+        if len(conv_layer.get_weights()) > 1:
+            bias   = weight_reader.read_bytes(np.prod(conv_layer.get_weights()[1].shape))
+            kernel = weight_reader.read_bytes(np.prod(conv_layer.get_weights()[0].shape))
+            kernel = kernel.reshape(list(reversed(conv_layer.get_weights()[0].shape)))
+            kernel = kernel.transpose([2,3,1,0])
+            conv_layer.set_weights([kernel, bias])
+        else:
+            kernel = weight_reader.read_bytes(np.prod(conv_layer.get_weights()[0].shape))
+            kernel = kernel.reshape(list(reversed(conv_layer.get_weights()[0].shape)))
+            kernel = kernel.transpose([2,3,1,0])
+            conv_layer.set_weights([kernel])
+    assert weight_reader.offset == weight_reader.all_weights.size, 'failed to read all data'
+
 def load_yolo_weights(model, weights_file):
     tf.keras.backend.clear_session() # used to reset layer names
     # load Darknet original weights to TensorFlow model
+    if YOLO_TYPE == "yolov2":
+        return _load_yolov2_weights(model, weights_file)
     if YOLO_TYPE == "yolov3":
         range1 = 75 if not TRAIN_YOLO_TINY else 13
         range2 = [58, 66, 74] if not TRAIN_YOLO_TINY else [9, 12]
@@ -85,6 +136,8 @@ def Load_Yolo_model():
             Darknet_weights = YOLO_V4_TINY_WEIGHTS if TRAIN_YOLO_TINY else YOLO_V4_WEIGHTS
         if YOLO_TYPE == "yolov3":
             Darknet_weights = YOLO_V3_TINY_WEIGHTS if TRAIN_YOLO_TINY else YOLO_V3_WEIGHTS
+        if YOLO_TYPE == "yolov2":
+            Darknet_weights = YOLO_V2_WEIGHTS
             
         if YOLO_CUSTOM_WEIGHTS == False:
             print("Loading Darknet_weights from:", Darknet_weights)

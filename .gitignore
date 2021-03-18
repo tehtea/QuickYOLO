@@ -1,0 +1,6 @@
+data_flat/
+mAP/
+checkpoints/
+.vscode/
+*.pyc
+*.out.tfevents*

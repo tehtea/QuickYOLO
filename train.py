@@ -27,6 +27,8 @@ if YOLO_TYPE == "yolov4":
     Darknet_weights = YOLO_V4_TINY_WEIGHTS if TRAIN_YOLO_TINY else YOLO_V4_WEIGHTS
 if YOLO_TYPE == "yolov3":
     Darknet_weights = YOLO_V3_TINY_WEIGHTS if TRAIN_YOLO_TINY else YOLO_V3_WEIGHTS
+if YOLO_TYPE == "yolov2":
+    Darknet_weights = YOLO_V2_WEIGHTS
 if TRAIN_YOLO_TINY: TRAIN_MODEL_NAME += "_Tiny"
 
 def main():
@@ -80,6 +82,7 @@ def main():
 
             # optimizing process
             grid = 3 if not TRAIN_YOLO_TINY else 2
+            grid = 1 if YOLO_TYPE == 'yolov2' else grid
             for i in range(grid):
                 conv, pred = pred_result[i*2], pred_result[i*2+1]
                 loss_items = compute_loss(pred, conv, *target[i], i, CLASSES=TRAIN_CLASSES)
@@ -121,6 +124,7 @@ def main():
 
             # optimizing process
             grid = 3 if not TRAIN_YOLO_TINY else 2
+            grid = 1 if YOLO_TYPE == 'yolov2' else grid
             for i in range(grid):
                 conv, pred = pred_result[i*2], pred_result[i*2+1]
                 loss_items = compute_loss(pred, conv, *target[i], i, CLASSES=TRAIN_CLASSES)

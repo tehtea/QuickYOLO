@@ -10,7 +10,7 @@
 #================================================================
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, Input, LeakyReLU, ZeroPadding2D, BatchNormalization, MaxPool2D
+from tensorflow.keras.layers import Conv2D, Input, LeakyReLU, ZeroPadding2D, BatchNormalization, MaxPool2D, Layer
 from tensorflow.keras.regularizers import l2
 from yolov3.configs import *
 
@@ -35,6 +35,15 @@ class BatchNormalization(BatchNormalization):
             training = tf.constant(False)
         training = tf.logical_and(training, self.trainable)
         return super().call(x, training)
+
+class SpaceToDepth(Layer):
+
+    def __init__(self, block_size, **kwargs):
+        self.block_size = block_size
+        super(SpaceToDepth, self).__init__(**kwargs)
+
+    def call(self, inputs):
+        return tf.nn.space_to_depth(inputs, block_size=self.block_size)
 
 def convolutional(input_layer, filters_shape, downsample=False, activate=True, bn=True, activate_type='leaky'):
     if downsample:
@@ -107,6 +116,126 @@ def darknet53(input_data):
         input_data = residual_block(input_data, 1024, 512, 1024)
 
     return route_1, route_2, input_data
+
+def darknet19(input_data):
+    float_conv_kwargs = dict(
+        use_bias=False, 
+        padding='same', 
+        kernel_regularizer=l2(0.0005),
+        strides = 1,
+        kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+        bias_initializer=tf.constant_initializer(0.)
+    )
+
+    # Layer 1
+    x = Conv2D(32, (3,3), name='conv_1', **float_conv_kwargs)(input_data)
+    x = BatchNormalization(name='norm_1')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+    x = MaxPool2D(pool_size=(2, 2))(x)
+
+    # Layer 2
+    x = Conv2D(64, (3,3), name='conv_2', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_2')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+    x = MaxPool2D(pool_size=(2, 2))(x)
+
+    # Layer 3
+    x = Conv2D(128, (3,3), name='conv_3', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_3')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 4
+    x = Conv2D(64, (1,1), name='conv_4', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_4')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 5
+    x = Conv2D(128, (3,3), name='conv_5', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_5')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+    x = MaxPool2D(pool_size=(2, 2))(x)
+
+    # Layer 6
+    x = Conv2D(256, (3,3), name='conv_6', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_6')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 7
+    x = Conv2D(128, (1,1), name='conv_7', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_7')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 8
+    x = Conv2D(256, (3,3), name='conv_8', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_8')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+    x = MaxPool2D(pool_size=(2, 2))(x)
+
+    # Layer 9
+    x = Conv2D(512, (3,3), name='conv_9', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_9')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 10
+    x = Conv2D(256, (1,1), name='conv_10', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_10')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 11
+    x = Conv2D(512, (3,3), name='conv_11', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_11')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 12
+    x = Conv2D(256, (1,1), name='conv_12', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_12')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 13
+    x = Conv2D(512, (3,3), name='conv_13', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_13')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    skip_connection = x
+
+    x = MaxPool2D(pool_size=(2, 2))(x)
+
+    # Layer 14
+    x = Conv2D(1024, (3,3), name='conv_14', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_14')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 15
+    x = Conv2D(512, (1,1), name='conv_15', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_15')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 16
+    x = Conv2D(1024, (3,3), name='conv_16', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_16')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 17
+    x = Conv2D(512, (1,1), name='conv_17', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_17')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 18
+    x = Conv2D(1024, (3,3), name='conv_18', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_18')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 19
+    x = Conv2D(1024, (3,3), name='conv_19', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_19')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    # Layer 20
+    x = Conv2D(1024, (3,3), name='conv_20', **float_conv_kwargs)(x)
+    x = BatchNormalization(name='norm_20')(x)
+    x = LeakyReLU(alpha=0.1)(x)
+
+    return x, skip_connection
 
 def cspdarknet53(input_data):
     input_data = convolutional(input_data, (3, 3,  3,  32), activate_type="mish")
@@ -281,6 +410,26 @@ def YOLOv3(input_layer, NUM_CLASS):
         
     return [conv_sbbox, conv_mbbox, conv_lbbox]
 
+def YOLOv2(input_layer, NUM_CLASS):
+    NUM_BOXES = 3 # this is not faithful reproduction of YOLOv2
+
+    # After the input layer enters the Darknet-19 network, we get two branches
+    x, skip_connection = darknet19(input_layer)
+
+    # Layer 21
+    skip_connection = convolutional(skip_connection, (1, 1, 512, 64))
+    skip_connection = SpaceToDepth(block_size=2)(skip_connection)
+
+    x = tf.concat([skip_connection, x], axis=-1)
+
+    # Layer 22
+    x = convolutional(x, (3, 3, 1278, 1024))
+
+    # Layer 23
+    conv_lbbox = convolutional(x, (1, 1, 1024, NUM_BOXES * (4 + 1 + NUM_CLASS)))
+
+    return [conv_lbbox] # this is the rough equivalent in yolov3 onwards
+
 def YOLOv4(input_layer, NUM_CLASS):
     route_1, route_2, conv = cspdarknet53(input_layer)
 
@@ -387,11 +536,15 @@ def Create_Yolo(input_size=416, channels=3, training=False, CLASSES=YOLO_COCO_CL
             conv_tensors = YOLOv4_tiny(input_layer, NUM_CLASS)
         if YOLO_TYPE == "yolov3":
             conv_tensors = YOLOv3_tiny(input_layer, NUM_CLASS)
+        if YOLO_TYPE == "yolov2":
+            raise Exception("Not supported")
     else:
         if YOLO_TYPE == "yolov4":
             conv_tensors = YOLOv4(input_layer, NUM_CLASS)
         if YOLO_TYPE == "yolov3":
             conv_tensors = YOLOv3(input_layer, NUM_CLASS)
+        if YOLO_TYPE == "yolov2":
+            conv_tensors = YOLOv2(input_layer, NUM_CLASS)
 
     output_tensors = []
     for i, conv_tensor in enumerate(conv_tensors):
