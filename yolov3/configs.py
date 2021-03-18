@@ -10,7 +10,7 @@
 #================================================================
 
 # YOLO options
-YOLO_TYPE                   = "yolov2" # yolov4 or yolov3 or yolov2 (no tiny for v2)
+YOLO_TYPE                   = "yolov2" # yolov4 or yolov3 or yolov2 or quickyolov2 (no tiny for v2)
 YOLO_FRAMEWORK              = "tf" # "tf" or "trt"
 YOLO_V2_WEIGHTS             = "model_data/darknet19_448.conv.23"
 YOLO_V3_WEIGHTS             = "model_data/yolov3.weights"
@@ -34,7 +34,7 @@ if YOLO_TYPE                == "yolov3":
     YOLO_ANCHORS            = [[[10,  13], [16,   30], [33,   23]],
                                [[30,  61], [62,   45], [59,  119]],
                                [[116, 90], [156, 198], [373, 326]]]
-if YOLO_TYPE                == "yolov2":
+if YOLO_TYPE                == "yolov2" or YOLO_TYPE == "quickyolov2":
     YOLO_STRIDES            = [32, 32, 32]
     YOLO_ANCHORS            = [[[116, 90], [156, 198], [373, 326]],
                                [[0,   0],  [0,     0], [0,     0]],

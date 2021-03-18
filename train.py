@@ -51,7 +51,7 @@ def main():
     warmup_steps = TRAIN_WARMUP_EPOCHS * steps_per_epoch
     total_steps = TRAIN_EPOCHS * steps_per_epoch
 
-    if TRAIN_TRANSFER:
+    if TRAIN_TRANSFER and YOLO_TYPE != 'quickyolov2':
         Darknet = Create_Yolo(input_size=YOLO_INPUT_SIZE, CLASSES=YOLO_COCO_CLASSES)
         load_yolo_weights(Darknet, Darknet_weights) # use darknet weights
 
@@ -82,7 +82,7 @@ def main():
 
             # optimizing process
             grid = 3 if not TRAIN_YOLO_TINY else 2
-            grid = 1 if YOLO_TYPE == 'yolov2' else grid
+            grid = 1 if YOLO_TYPE == 'yolov2' or YOLO_TYPE == 'quickyolov2' else grid
             for i in range(grid):
                 conv, pred = pred_result[i*2], pred_result[i*2+1]
                 loss_items = compute_loss(pred, conv, *target[i], i, CLASSES=TRAIN_CLASSES)
@@ -124,7 +124,7 @@ def main():
 
             # optimizing process
             grid = 3 if not TRAIN_YOLO_TINY else 2
-            grid = 1 if YOLO_TYPE == 'yolov2' else grid
+            grid = 1 if YOLO_TYPE == 'yolov2' or YOLO_TYPE == 'quickyolov2' else grid
             for i in range(grid):
                 conv, pred = pred_result[i*2], pred_result[i*2+1]
                 loss_items = compute_loss(pred, conv, *target[i], i, CLASSES=TRAIN_CLASSES)

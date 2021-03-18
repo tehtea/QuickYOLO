@@ -10,7 +10,9 @@
 #================================================================
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, Input, LeakyReLU, ZeroPadding2D, BatchNormalization, MaxPool2D, Layer
+import larq as lq
+import larq_zoo as lqz
+from tensorflow.keras.layers import Conv2D, Input, LeakyReLU, ZeroPadding2D, BatchNormalization, MaxPool2D, Layer, DepthwiseConv2D
 from tensorflow.keras.regularizers import l2
 from yolov3.configs import *
 
@@ -488,6 +490,37 @@ def YOLOv4(input_layer, NUM_CLASS):
 
     return [conv_sbbox, conv_mbbox, conv_lbbox]
 
+def QuickYOLOv2(input_layer, NUM_CLASS):
+    NUM_BOXES = 3 # this is not faithful reproduction of YOLOv2
+    float_conv_kwargs = dict(
+        use_bias=False, 
+        padding='same', 
+        kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+        bias_initializer=tf.constant_initializer(0.),
+        kernel_regularizer=l2(0.0005),
+        strides = 1,
+    )
+
+    tf.keras.backend.clear_session()
+    quicknet = lqz.sota.QuickNet(weights="imagenet", input_tensor=input_layer, include_top=False)
+
+    skip_connection = quicknet.get_layer("activation_3").output
+    skip_connection = DepthwiseConv2D(kernel_size=3, depth_multiplier=1, **float_conv_kwargs)(skip_connection)
+    skip_connection = Conv2D(filters=64, kernel_size=1, **float_conv_kwargs)(skip_connection)
+    skip_connection = BatchNormalization()(skip_connection)
+    skip_connection = SpaceToDepth(block_size=2)(skip_connection)
+
+    x = tf.concat([skip_connection, quicknet.output], axis=-1)
+
+    x = DepthwiseConv2D(kernel_size=3, depth_multiplier=1, **float_conv_kwargs)(x)
+    x = Conv2D(filters=1024, kernel_size=1, **float_conv_kwargs)(x)
+    x = BatchNormalization()(x)
+
+    x = DepthwiseConv2D(kernel_size=1, depth_multiplier=1, **float_conv_kwargs)(x)
+    conv_lbbox = Conv2D(filters=NUM_BOXES * (4 + 1 + NUM_CLASS), kernel_size=1, strides=1, padding='same')(x)
+
+    return [conv_lbbox]
+
 def YOLOv3_tiny(input_layer, NUM_CLASS):
     # After the input layer enters the Darknet-53 network, we get three branches
     route_1, conv = darknet19_tiny(input_layer)
@@ -538,6 +571,8 @@ def Create_Yolo(input_size=416, channels=3, training=False, CLASSES=YOLO_COCO_CL
             conv_tensors = YOLOv3_tiny(input_layer, NUM_CLASS)
         if YOLO_TYPE == "yolov2":
             raise Exception("Not supported")
+        if YOLO_TYPE == "quickyolov2":
+            raise Exception("Not supported")
     else:
         if YOLO_TYPE == "yolov4":
             conv_tensors = YOLOv4(input_layer, NUM_CLASS)
@@ -545,7 +580,8 @@ def Create_Yolo(input_size=416, channels=3, training=False, CLASSES=YOLO_COCO_CL
             conv_tensors = YOLOv3(input_layer, NUM_CLASS)
         if YOLO_TYPE == "yolov2":
             conv_tensors = YOLOv2(input_layer, NUM_CLASS)
-
+        if YOLO_TYPE == "quickyolov2":
+            conv_tensors = QuickYOLOv2(input_layer, NUM_CLASS)
     output_tensors = []
     for i, conv_tensor in enumerate(conv_tensors):
         pred_tensor = decode(conv_tensor, NUM_CLASS, i)
