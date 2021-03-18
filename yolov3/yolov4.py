@@ -426,7 +426,7 @@ def YOLOv2(input_layer, NUM_CLASS):
     x = convolutional(x, (3, 3, 1278, 1024))
 
     # Layer 23
-    conv_lbbox = convolutional(x, (1, 1, 1024, NUM_BOXES * (4 + 1 + NUM_CLASS)))
+    conv_lbbox = convolutional(x, (1, 1, 1024, NUM_BOXES * (4 + 1 + NUM_CLASS)), activate=False, bn=False)
 
     return [conv_lbbox] # this is the rough equivalent in yolov3 onwards
 
