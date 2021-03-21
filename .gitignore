@@ -3,6 +3,7 @@ mAP/
 checkpoints/
 mnist/
 model_data/
+voc_data/
 .vscode/
 *.pyc
 *.out.tfevents*
