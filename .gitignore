@@ -1,6 +1,8 @@
 data_flat/
 mAP/
 checkpoints/
+mnist/
+model_data/
 .vscode/
 *.pyc
 *.out.tfevents*

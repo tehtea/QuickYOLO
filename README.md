@@ -31,11 +31,15 @@ The example model is based off YOLOv2, with QuickNet as the backbone, and a head
 ### 2. Train
 1. Run `python train.py`
 
-### 3. Export
+### 3. (Optional) Evaluate accuracy
+1. Change `YOLO_CUSTOM_WEIGHTS` in `configs.py` to the checkpoint for the trained model, e.g. `checkpoints/quickyolov2`
+2. Run `python evaluate_mAP.py`
+
+### 4. Export
 1. Change `CHECKPOINT_WEIGHTS` to `True` in `configs.py`
 2. Run `python export_to_larq.py`
 
-### 4. Deploy
+### 5. Deploy
 1. Install OpenCV4 (run `demo_application/install_lce.sh` from current directory)
 2. Install Larq Compute Engine (run `install_lce.sh` from current directory)
 3. Move `demo_application/detection.cc` to `${larq-compute-engine}/examples`

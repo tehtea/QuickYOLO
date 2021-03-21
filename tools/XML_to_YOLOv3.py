@@ -24,7 +24,8 @@ is_subfolder = False
 
 Dataset_names = []
       
-def ParseXML(img_folder, file):
+def ParseXML(img_folder, file, is_test):
+    difficult_objects_count = 0
     for xml_file in glob.glob(img_folder+'/*.xml'):
         tree=ET.parse(open(xml_file))
         root = tree.getroot()
@@ -32,6 +33,9 @@ def ParseXML(img_folder, file):
         img_path = img_folder+'/'+image_name
         for i, obj in enumerate(root.iter('object')):
             difficult = obj.find('difficult').text
+            if difficult == '1' and is_test:
+                difficult_objects_count += 1
+                continue
             cls = obj.find('name').text
             if cls not in Dataset_names:
                 Dataset_names.append(cls)
@@ -45,6 +49,7 @@ def ParseXML(img_folder, file):
             img_path += ' '+OBJECT
         print(img_path)
         file.write(img_path+'\n')
+    print(f'Difficult objects removed: {difficult_objects_count}')
 
 def run_XML_to_YOLOv3():
     for i, folder in enumerate(['train','test']):
@@ -54,9 +59,9 @@ def run_XML_to_YOLOv3():
             if is_subfolder:
                 for directory in os.listdir(img_path):
                     xml_path = os.path.join(img_path, directory)
-                    ParseXML(xml_path, file)
+                    ParseXML(xml_path, file, folder == 'test')
             else:
-                ParseXML(img_path, file)
+                ParseXML(img_path, file, folder == 'test')
 
     print("Dataset_names:", Dataset_names)
     with open(Dataset_names_path, "w") as file:

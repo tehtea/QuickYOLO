@@ -18,7 +18,7 @@ YOLO_V4_WEIGHTS             = "model_data/yolov4.weights"
 YOLO_V3_TINY_WEIGHTS        = "model_data/yolov3-tiny.weights"
 YOLO_V4_TINY_WEIGHTS        = "model_data/yolov4-tiny.weights"
 YOLO_TRT_QUANTIZE_MODE      = "INT8" # INT8, FP16, FP32
-YOLO_CUSTOM_WEIGHTS         = False # "checkpoints/yolov3_custom_Tiny" # "checkpoints/yolov3_custom" # used in evaluate_mAP.py and custom model detection, if not using leave False
+YOLO_CUSTOM_WEIGHTS         = False # "checkpoints/yolov3_custom" # used in evaluate_mAP.py and custom model detection, if not using leave False
                             # YOLO_CUSTOM_WEIGHTS also used with TensorRT and custom model detection
 YOLO_COCO_CLASSES           = "model_data/coco/coco.names"
 YOLO_STRIDES                = [8, 16, 32]
@@ -39,10 +39,6 @@ if YOLO_TYPE                == "yolov2" or YOLO_TYPE == "quickyolov2":
     YOLO_ANCHORS            = [[[62, 48], [84,  107], [200, 176]],
                                [[0,   0], [0,     0], [0,     0]],
                                [[0,   0], [0,     0], [0,     0]]]
-    # YOLO_ANCHORS            = [[[42,  55], [102,   128], [161,   259], [303,   155],  [360,   320]],
-    #                             [[0,  0], [0,   0], [0,   0], [0,   0],  [0,   0]],
-    #                             [[0,  0], [0,   0], [0,   0], [0,   0],  [0,   0]]
-    #                             ]
 
 # Train options
 TRAIN_YOLO_TINY             = False
@@ -55,19 +51,19 @@ TRAIN_CHECKPOINTS_FOLDER    = "checkpoints"
 TRAIN_MODEL_NAME            = f"{YOLO_TYPE}_custom"
 TRAIN_LOAD_IMAGES_TO_RAM    = False # With True faster training, but need more RAM
 TRAIN_BATCH_SIZE            = 32
-TRAIN_INPUT_SIZE            = 224
+TRAIN_INPUT_SIZE            = YOLO_INPUT_SIZE
 TRAIN_DATA_AUG              = True
 TRAIN_TRANSFER              = False # must be false for quickyolo
 TRAIN_FROM_CHECKPOINT       = False # "checkpoints/yolov3_custom"
 TRAIN_LR_INIT               = 1e-4
-TRAIN_LR_END                = 1e-6
+TRAIN_LR_END                = 1e-7
 TRAIN_WARMUP_EPOCHS         = 2
-TRAIN_EPOCHS                = 100
+TRAIN_EPOCHS                = 120
 
 # TEST options
 TEST_ANNOT_PATH             = "model_data/voc_test.txt"
 TEST_BATCH_SIZE             = 32
-TEST_INPUT_SIZE             = 224
+TEST_INPUT_SIZE             = YOLO_INPUT_SIZE
 TEST_DATA_AUG               = False
 TEST_DECTECTED_IMAGE_PATH   = ""
 TEST_SCORE_THRESHOLD        = 0.4

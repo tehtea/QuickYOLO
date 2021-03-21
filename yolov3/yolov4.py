@@ -598,6 +598,10 @@ def Create_Yolo(input_size=416, channels=3, training=False, CLASSES=YOLO_COCO_CL
 
 
 def decode(conv_output, NUM_CLASS, i=0):
+    """
+    Returns box xywh, scaled up to the input size, 
+    along with confidence and class probabilities
+    """
     # where i = 0, 1 or 2 to correspond to the three grid scales  
     conv_shape       = tf.shape(conv_output)
     batch_size       = conv_shape[0]
