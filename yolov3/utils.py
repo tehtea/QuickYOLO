@@ -333,9 +333,6 @@ def postprocess_boxes(pred_bbox, original_image, input_size, score_threshold):
 
 def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLASSES=YOLO_COCO_CLASSES, score_threshold=0.3, iou_threshold=0.45, rectangle_colors=''):
     original_image      = cv2.imread(image_path)
-    original_image      = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
-    original_image      = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
-
     image_data = image_preprocess(np.copy(original_image), [input_size, input_size])
     image_data = image_data[np.newaxis, ...].astype(np.float32)
 
@@ -355,6 +352,7 @@ def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLAS
     bboxes = postprocess_boxes(pred_bbox, original_image, input_size, score_threshold)
     bboxes = nms(bboxes, iou_threshold, method='nms')
 
+    original_image      = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
     image = draw_bbox(original_image, bboxes, CLASSES=CLASSES, rectangle_colors=rectangle_colors)
     # CreateXMLfile("XML_Detections", str(int(time.time())), original_image, bboxes, read_class_names(CLASSES))
 

@@ -111,11 +111,8 @@ if __name__ == '__main__':
         signature_keys = list(saved_model_loaded.signatures.keys())
         yolo = saved_model_loaded.signatures['serving_default']
 
-    x = yolo.output
-    output = PostProcess(TEST_SCORE_THRESHOLD, TEST_IOU_THRESHOLD, TEST_AREA_THRESHOLD)(x)
-    yolo = tf.keras.models.Model(yolo.input, output)
-
-    yolo.summary()
+    post_processed_output = PostProcess(TEST_SCORE_THRESHOLD, TEST_IOU_THRESHOLD, TEST_AREA_THRESHOLD)(yolo.output)
+    yolo = tf.keras.models.Model(yolo.input, post_processed_output)
 
     flatbuffer_bytes = lce.convert_keras_model(yolo)
 
