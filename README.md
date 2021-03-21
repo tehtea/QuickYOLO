@@ -37,14 +37,15 @@ The example model is based off YOLOv2, with QuickNet as the backbone, and a head
 
 ### 4. Export
 1. If haven't, change `YOLO_CUSTOM_WEIGHTS` in `configs.py` to the checkpoint for the trained model, e.g. `checkpoints/quickyolov2_custom`
-2. Run `python export_to_larq.py`
+2. Run `python export_larq_model.py`
 
 ### 5. Deploy
 1. Install OpenCV4 (run `demo_application/install_lce.sh` from current directory)
 2. Install Larq Compute Engine (run `install_lce.sh` from current directory)
 3. Move `demo_application/detection.cc` to `${larq-compute-engine}/examples`
 4. Move `demo_application/Makefile` to `${larq-compute-engine}/larq_compute_engine/tflite/build_make/Makefile`
-5. Build using `make`
+5. Build using `larq_compute_engine/tflite/build_make/build_lce.sh --native`
+6. Move the exported model, and `voc_names.txt` to `gen/linux_aarch64`, renaming them to `model.tflite` and `labelmap.txt` respectively.
 
 ## References
 - A lot of the training code was forked from `https://github.com/pythonlessons/TensorFlow-2.x-YOLOv3`
