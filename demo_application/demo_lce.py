@@ -70,6 +70,7 @@ class Demo:
         input_image = np.asarray(input_image, dtype=np.float32) / 255.
 
         input_image = np.expand_dims(input_image, 0)
+
         boxes, scores, classes = self.interpreter.predict(input_image)
 
         return boxes, scores, classes
@@ -81,6 +82,9 @@ class Demo:
         thickness = 2
 
         for box, score, cls_id in zip(boxes, scores, classes):
+            cls_id = int(cls_id)
+            score = score[0]
+
             x1, y1, x2, y2 = box
             x1 = int(x1 * self.cam_width)
             y1 = int(y1 * self.cam_height)
