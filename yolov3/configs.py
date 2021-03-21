@@ -36,9 +36,9 @@ if YOLO_TYPE                == "yolov3":
                                [[116, 90], [156, 198], [373, 326]]]
 if YOLO_TYPE                == "yolov2" or YOLO_TYPE == "quickyolov2":
     YOLO_STRIDES            = [32, 32, 32]
-    YOLO_ANCHORS            = [[[116, 90], [156, 198], [373, 326]],
-                               [[0,   0],  [0,     0], [0,     0]],
-                               [[0,   0],  [0,     0], [0,     0]]]
+    YOLO_ANCHORS            = [[[62, 48], [84,  107], [200, 176]],
+                               [[0,   0], [0,     0], [0,     0]],
+                               [[0,   0], [0,     0], [0,     0]]]
     # YOLO_ANCHORS            = [[[42,  55], [102,   128], [161,   259], [303,   155],  [360,   320]],
     #                             [[0,  0], [0,   0], [0,   0], [0,   0],  [0,   0]],
     #                             [[0,  0], [0,   0], [0,   0], [0,   0],  [0,   0]]
@@ -54,8 +54,8 @@ TRAIN_LOGDIR                = "log" + f"_{YOLO_TYPE}"
 TRAIN_CHECKPOINTS_FOLDER    = "checkpoints"
 TRAIN_MODEL_NAME            = f"{YOLO_TYPE}_custom"
 TRAIN_LOAD_IMAGES_TO_RAM    = False # With True faster training, but need more RAM
-TRAIN_BATCH_SIZE            = 8
-TRAIN_INPUT_SIZE            = 416
+TRAIN_BATCH_SIZE            = 32
+TRAIN_INPUT_SIZE            = 224
 TRAIN_DATA_AUG              = True
 TRAIN_TRANSFER              = False # must be false for quickyolo
 TRAIN_FROM_CHECKPOINT       = False # "checkpoints/yolov3_custom"
@@ -66,12 +66,12 @@ TRAIN_EPOCHS                = 100
 
 # TEST options
 TEST_ANNOT_PATH             = "model_data/voc_test.txt"
-TEST_BATCH_SIZE             = 8
+TEST_BATCH_SIZE             = 32
 TEST_INPUT_SIZE             = 224
 TEST_DATA_AUG               = False
 TEST_DECTECTED_IMAGE_PATH   = ""
-TEST_SCORE_THRESHOLD        = 0.3
-TEST_IOU_THRESHOLD          = 0.45
+TEST_SCORE_THRESHOLD        = 0.4
+TEST_IOU_THRESHOLD          = 0.5
 
 
 #YOLOv3-TINY and YOLOv4-TINY WORKAROUND
