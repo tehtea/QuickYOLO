@@ -204,10 +204,7 @@ def decode(conv_output, NUM_CLASS, i=0):
 
     conv_output = tf.reshape(conv_output, (batch_size, output_size, output_size, 3, 5 + NUM_CLASS))
 
-    conv_raw_dxdy = conv_output[:, :, :, :, 0:2] # offset of center position     
-    conv_raw_dwdh = conv_output[:, :, :, :, 2:4] # Prediction box length and width offset
-    conv_raw_conf = conv_output[:, :, :, :, 4:5] # confidence of the prediction box
-    conv_raw_prob = conv_output[:, :, :, :, 5: ] # category probability of the prediction box 
+    conv_raw_dxdy, conv_raw_dwdh, conv_raw_conf, conv_raw_prob = tf.split(conv_output, (2,  2, 1, -1), axis=-1)
 
     # next need Draw the grid. Where output_size is equal to 13, 26 or 52  
     y = tf.range(output_size, dtype=tf.int32)

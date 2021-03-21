@@ -32,11 +32,11 @@ The example model is based off YOLOv2, with QuickNet as the backbone, and a head
 1. Run `python train.py`
 
 ### 3. (Optional) Evaluate accuracy
-1. Change `YOLO_CUSTOM_WEIGHTS` in `configs.py` to the checkpoint for the trained model, e.g. `checkpoints/quickyolov2`
+1. Change `YOLO_CUSTOM_WEIGHTS` in `configs.py` to the checkpoint for the trained model, e.g. `checkpoints/quickyolov2_custom`
 2. Run `python evaluate_mAP.py`
 
 ### 4. Export
-1. Change `CHECKPOINT_WEIGHTS` to `True` in `configs.py`
+1. If haven't, change `YOLO_CUSTOM_WEIGHTS` in `configs.py` to the checkpoint for the trained model, e.g. `checkpoints/quickyolov2_custom`
 2. Run `python export_to_larq.py`
 
 ### 5. Deploy
