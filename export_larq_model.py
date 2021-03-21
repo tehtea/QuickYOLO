@@ -45,7 +45,6 @@ class PostProcess(tf.keras.layers.Layer):
         # 4. Get box classes
         box_classes = tf.argmax(box_class_prob, axis=-1, output_type=tf.int32)
         box_classes = tf.expand_dims(box_classes, axis=-1)
-        box_classes = tf.cast(box_classes, dtype=tf.float32)
 
         # 5. Normalize xywh
         boxes /= YOLO_INPUT_SIZE
@@ -74,26 +73,25 @@ class PostProcess(tf.keras.layers.Layer):
         box_scores = box_scores[boxes_to_keep_mask]
         box_classes = box_classes[boxes_to_keep_mask]
 
-
-        # 11. Apply non-max-suppression on the filtered boxes
-        selected_idx = tf.image.non_max_suppression(boxes, 
-                                                    tf.squeeze(box_scores, axis=-1),
-                                                    10, 
-                                                    iou_threshold=iou_threshold, 
-                                                    score_threshold=score_threshold)
+        # # 11. Apply non-max-suppression on the filtered boxes
+        # selected_idx = tf.image.non_max_suppression(boxes, 
+        #                                             tf.squeeze(box_scores, axis=-1),
+        #                                             10, 
+        #                                             iou_threshold=iou_threshold, 
+        #                                             score_threshold=score_threshold)
         
-        # due to issues with tf.gather on tflite, make selected_idx into a mask instead
-        # boxes = tf.gather(boxes, selected_idx)
-        # classes = tf.gather(box_classes, selected_idx)
-        # scores = tf.gather(box_scores, selected_idx)
-        total_num_boxes = tf.shape(boxes)[0]
-        selected_mask = tf.one_hot(selected_idx, depth=total_num_boxes)
-        selected_mask = tf.reduce_sum(selected_mask, axis=0)
-        selected_mask = tf.cast(selected_mask, dtype=tf.bool)
+        # # due to issues with tf.gather on tflite, make selected_idx into a mask instead
+        # # boxes = tf.gather(boxes, selected_idx)
+        # # classes = tf.gather(box_classes, selected_idx)
+        # # scores = tf.gather(box_scores, selected_idx)
+        # total_num_boxes = tf.shape(boxes)[0]
+        # selected_mask = tf.one_hot(selected_idx, depth=total_num_boxes)
+        # selected_mask = tf.reduce_sum(selected_mask, axis=0)
+        # selected_mask = tf.cast(selected_mask, dtype=tf.bool)
 
-        boxes = boxes[selected_mask]
-        box_scores = box_scores[selected_mask]
-        box_classes = box_classes[selected_mask]
+        # boxes = boxes[selected_mask]
+        # box_scores = box_scores[selected_mask]
+        # box_classes = box_classes[selected_mask]
 
         return boxes, box_scores, box_classes # , num_predictions (had problems accessing this via tflite c++ api, don't bother)
 
