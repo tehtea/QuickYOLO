@@ -51,5 +51,11 @@ The example model is based off YOLOv2, with QuickNet as the backbone, and a head
 - A lot of the training code was forked from `https://github.com/pythonlessons/TensorFlow-2.x-YOLOv3`
 - Demo application took reference from `https://github.com/finnickniu/tensorflow_object_detection_tflite/blob/master/demo.cpp`
 
+## TODOs
+- [ ] Clean up the code base in this repo
+- [ ] Incorporate spatial pyramids
+- [ ] Make example application buildable using Bazel
+- [ ] Add multiprocessing for camera I/O in demo application
+
 ## License
 MIT
