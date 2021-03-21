@@ -6,8 +6,8 @@ It is forked from https://github.com/pythonlessons/TensorFlow-2.x-YOLOv3, which 
 
 Libraries used:
 
-- Larq 0.5.0
-- TensorFlow 2.4
+- Larq 0.11.2
+- TensorFlow 2.3.2
 - OpenCV 4
 
 Platform tested on:
@@ -16,7 +16,7 @@ Platform tested on:
 
 The example model is based off YOLOv2, with QuickNet as the backbone, and a head that is based off the transition blocks in QuickNet. Here are the statistics for this model:
 
-- mAP@0.5 for VOC2007 Test Set: 0.214 (A bit sad, I know :cry: )
+- mAP@0.5 for VOC2007 Test Set: 0.43
 - Average Inference Time (Tested using the LCE benchmarking tool on a Jetson Nano):  26.5 ms
 
 ## Usage
