@@ -19,7 +19,14 @@ The example model is based off YOLOv2, with QuickNet as the backbone, and a head
 - mAP@0.5 for VOC2007 Test Set: 0.43
 - Average Inference Time (Tested using the LCE benchmarking tool on a Jetson Nano):  26.5 ms
 
-## Usage
+
+## Demo through your computer (no speedups, just a slightly :shit: detector)
+1. `cd demo_application`
+2. `python demo_lce.py`
+
+## End-to-End Usage
+For a quick demo, just skip to the deployment step with the provided 
+`model.tflite` and `labelmap.tflite` in `demo_application/`
 
 ### 1. Prepare datset
 1. Run `dataset_preparation/dataset_preparation.sh`
