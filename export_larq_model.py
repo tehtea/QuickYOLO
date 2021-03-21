@@ -32,26 +32,52 @@ class PostProcess(tf.keras.layers.Layer):
                                 score_threshold, 
                                 iou_threshold, 
                                 area_threshold):
-        # Get the x1y1x2x2, box_conf, and box_class_probs of each box
-        boxes, box_conf, box_class_prob = tf.split(pred_boxes, (4, 1, -1), axis=-1)
+        # 1. Flatten the boxes
+        flattened_boxes = tf.reshape(pred_boxes, (-1, tf.shape(pred_boxes)[-1]))
 
-        # normalize x,y,w,h
-        boxes /= TEST_INPUT_SIZE
+        # 2. Get xywh, conf, class_probs of each box
+        boxes, box_conf, box_class_prob = \
+            tf.split(flattened_boxes, (4, 1, -1), axis=-1)
 
-        # obtain the classes and scores for each box
-        box_classes = tf.argmax(box_class_prob, axis=-1, output_type=tf.int32)
+        # 3. Get box scores        
         box_scores = box_conf * tf.expand_dims(tf.reduce_max(box_class_prob, axis=-1), axis=-1)
-        
-        # reshape the boxes, classes, and scores for post-processing
-        boxes = tf.reshape(boxes, (-1, 4))
-        box_classes = tf.reshape(box_classes, (-1, 1))
-        box_classes = tf.squeeze(box_classes, axis=-1)
-        box_scores = tf.reshape(box_scores, (-1, 1))
-        box_scores = tf.squeeze(box_scores, axis=-1)
 
-        # filter the boxes
+        # 4. Get box classes
+        box_classes = tf.argmax(box_class_prob, axis=-1, output_type=tf.int32)
+        box_classes = tf.expand_dims(box_classes, axis=-1)
+        box_classes = tf.cast(box_classes, dtype=tf.float32)
+
+        # 5. Normalize xywh
+        boxes /= YOLO_INPUT_SIZE
+        boxes = tf.clip_by_value(boxes, clip_value_min=0, clip_value_max=1)
+
+        # 6. Split boxes and convert them to xmin, ymin, xmax, ymax
+        boxes_x, boxes_y, boxes_w, boxes_h = tf.split(boxes, (1, 1, 1, 1), axis=-1)
+        boxes_x1 = tf.clip_by_value(boxes_x - boxes_w * 0.5, clip_value_min=0, clip_value_max=1)
+        boxes_y1 = tf.clip_by_value( boxes_y - boxes_h * 0.5, clip_value_min=0, clip_value_max=1)
+        boxes_x2 = tf.clip_by_value(boxes_x + boxes_w * 0.5, clip_value_min=0, clip_value_max=1)
+        boxes_y2 = tf.clip_by_value(boxes_y + boxes_h * 0.5, clip_value_min=0, clip_value_max=1)
+
+        # 7. Take note of boxes that are big enough
+        big_enough_mask = ((boxes_x2 - boxes_x1) * (boxes_y2 - boxes_y1)) > TEST_AREA_THRESHOLD
+
+        # 8. Concatenate the transformed boxes
+        boxes = tf.concat([boxes_x1, boxes_y1, boxes_x2, boxes_y2], axis=-1)
+
+        # 9. Take note of boxes that are confident enough
+        confident_enough_mask = box_scores > score_threshold
+
+        # 10. Filter out boxes
+        boxes_to_keep_mask = tf.logical_and(big_enough_mask, confident_enough_mask)
+        boxes_to_keep_mask = tf.squeeze(boxes_to_keep_mask, axis=-1)
+        boxes = boxes[boxes_to_keep_mask]
+        box_scores = box_scores[boxes_to_keep_mask]
+        box_classes = box_classes[boxes_to_keep_mask]
+
+
+        # 11. Apply non-max-suppression on the filtered boxes
         selected_idx = tf.image.non_max_suppression(boxes, 
-                                                    box_scores,
+                                                    tf.squeeze(box_scores, axis=-1),
                                                     10, 
                                                     iou_threshold=iou_threshold, 
                                                     score_threshold=score_threshold)
@@ -60,7 +86,6 @@ class PostProcess(tf.keras.layers.Layer):
         # boxes = tf.gather(boxes, selected_idx)
         # classes = tf.gather(box_classes, selected_idx)
         # scores = tf.gather(box_scores, selected_idx)
-
         total_num_boxes = tf.shape(boxes)[0]
         selected_mask = tf.one_hot(selected_idx, depth=total_num_boxes)
         selected_mask = tf.reduce_sum(selected_mask, axis=0)
@@ -69,17 +94,6 @@ class PostProcess(tf.keras.layers.Layer):
         boxes = boxes[selected_mask]
         box_scores = box_scores[selected_mask]
         box_classes = box_classes[selected_mask]
-
-        # filter even further: remove all boxes with low areas
-        boxes_x1, boxes_y1, boxes_x2, boxes_y2 = tf.split(boxes, (1, 1, 1, 1), axis=-1)
-        boxes_w = boxes_x2 - boxes_x1
-        boxes_h = boxes_y2 - boxes_y1
-        boxes_area = boxes_w * boxes_h
-        min_area_mask =  tf.squeeze(boxes_area > area_threshold, axis=-1)
-
-        boxes = boxes[min_area_mask]
-        box_scores = box_scores[min_area_mask]
-        box_classes = box_classes[min_area_mask]
 
         return boxes, box_scores, box_classes # , num_predictions (had problems accessing this via tflite c++ api, don't bother)
 
