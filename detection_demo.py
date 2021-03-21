@@ -21,7 +21,7 @@ image_output_path = "./IMAGES/kite_pred.jpg"
 video_path   = "./IMAGES/test.mp4"
 
 yolo = Load_Yolo_model()
-detect_image(yolo, image_path, image_output_path, input_size=YOLO_INPUT_SIZE, show=False, rectangle_colors=(255,0,0))
+detect_image(yolo, image_path, image_output_path, CLASSES=TRAIN_CLASSES, input_size=YOLO_INPUT_SIZE, show=False, rectangle_colors=(255,0,0))
 print(f"sample predictions saved to {image_output_path}")
 #detect_video(yolo, video_path, "", input_size=YOLO_INPUT_SIZE, show=False, rectangle_colors=(255,0,0))
 #detect_realtime(yolo, '', input_size=YOLO_INPUT_SIZE, show=True, rectangle_colors=(255, 0, 0))
