@@ -17,10 +17,12 @@ from yolov3.utils import detect_image, detect_realtime, detect_video, Load_Yolo_
 from yolov3.configs import *
 
 image_path   = "./IMAGES/kite.jpg"
+image_output_path = "./IMAGES/kite_pred.jpg"
 video_path   = "./IMAGES/test.mp4"
 
 yolo = Load_Yolo_model()
-detect_image(yolo, image_path, "./IMAGES/kite_pred.jpg", input_size=YOLO_INPUT_SIZE, show=True, rectangle_colors=(255,0,0))
+detect_image(yolo, image_path, image_output_path, input_size=YOLO_INPUT_SIZE, show=False, rectangle_colors=(255,0,0))
+print(f"sample predictions saved to {image_output_path}")
 #detect_video(yolo, video_path, "", input_size=YOLO_INPUT_SIZE, show=False, rectangle_colors=(255,0,0))
 #detect_realtime(yolo, '', input_size=YOLO_INPUT_SIZE, show=True, rectangle_colors=(255, 0, 0))
 
