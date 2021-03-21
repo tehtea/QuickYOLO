@@ -16,7 +16,7 @@ foldername = os.path.basename(os.getcwd())
 if foldername == "tools": os.chdir("..")
 
 
-data_dir = '/data_flat/data/'
+data_dir = '/voc_data/'
 Dataset_names_path = "model_data/voc_names.txt"
 Dataset_train = "model_data/voc_train.txt"
 Dataset_test = "model_data/voc_test.txt"

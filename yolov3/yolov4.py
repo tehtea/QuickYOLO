@@ -15,6 +15,7 @@ import larq_zoo as lqz
 from tensorflow.keras.layers import Conv2D, Input, LeakyReLU, ZeroPadding2D, BatchNormalization, MaxPool2D, Layer, DepthwiseConv2D
 from tensorflow.keras.regularizers import l2
 from yolov3.configs import *
+from larq.layers import QuantConv2D, QuantDepthwiseConv2D
 
 STRIDES         = np.array(YOLO_STRIDES)
 ANCHORS         = (np.array(YOLO_ANCHORS).T/STRIDES).T
@@ -503,6 +504,10 @@ def QuickYOLOv2(input_layer, NUM_CLASS):
 
     tf.keras.backend.clear_session()
     quicknet = lqz.sota.QuickNet(weights="imagenet", input_tensor=input_layer, include_top=False)
+    layers_to_regularize = [QuantConv2D, QuantDepthwiseConv2D, Conv2D, DepthwiseConv2D]
+    for module in quicknet.submodules:
+        if any([isinstance(module, layer_type) for layer_type in layers_to_regularize]):
+            module.kernel_regularizer = l2(0.0005)
 
     skip_connection = quicknet.get_layer("activation_3").output
     skip_connection = DepthwiseConv2D(kernel_size=3, depth_multiplier=1, **float_conv_kwargs)(skip_connection)
