@@ -74,12 +74,19 @@ class PostProcess(tf.keras.layers.Layer):
         box_classes = box_classes[boxes_to_keep_mask]
 
         # 11. Apply non-max-suppression on the filtered boxes
-        selected_idx = tf.image.non_max_suppression(boxes, 
+        selected_idx, box_scores = tf.image.non_max_suppression_with_scores(boxes, 
                                                     tf.squeeze(box_scores, axis=-1),
                                                     10, 
                                                     iou_threshold=iou_threshold, 
                                                     score_threshold=score_threshold)
-        
+        # 12. Filter selected_idx and box scores as output may be padded
+        pad_filter_mask = box_scores > score_threshold
+        box_scores = tf.expand_dims(box_scores, axis=-1)
+
+        selected_idx = selected_idx[pad_filter_mask]
+        box_scores = box_scores[pad_filter_mask]
+
+        # 13. Perform the nms filter proper        
         # due to issues with tf.gather on tflite, make selected_idx into a mask instead
         # boxes = tf.gather(boxes, selected_idx)
         # classes = tf.gather(box_classes, selected_idx)
@@ -90,7 +97,6 @@ class PostProcess(tf.keras.layers.Layer):
         selected_mask = tf.cast(selected_mask, dtype=tf.bool)
 
         boxes = boxes[selected_mask]
-        box_scores = box_scores[selected_mask]
         box_classes = box_classes[selected_mask]
 
         return boxes, box_scores, box_classes # , num_predictions (had problems accessing this via tflite c++ api, don't bother)

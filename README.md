@@ -16,11 +16,11 @@ Platform tested on:
 
 The example model is based off YOLOv2, with QuickNet as the backbone, and a head that is based off the transition blocks in QuickNet. Here are the statistics for this model:
 
-- mAP@0.5 for VOC2007 Test Set: 0.43
+- mAP@0.5 for VOC2007 Test Set: 0.50
 - Average Inference Time (Tested using the LCE benchmarking tool on a Jetson Nano):  26.5 ms
 
 
-## Demo through your computer (no speedups, just a slightly :shit: detector)
+## Demo through your computer (no speedups, just a rather meh detector)
 1. `cd demo_application`
 2. `python demo_lce.py`
 
