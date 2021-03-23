@@ -27,86 +27,75 @@ class PostProcess(tf.keras.layers.Layer):
         self.area_threshold = area_threshold
         super(PostProcess, self).__init__(**kwargs)
 
-    def post_prediction_process(self, 
-                                pred_boxes, 
-                                score_threshold, 
-                                iou_threshold, 
-                                area_threshold):
-        # 1. Flatten the boxes
-        flattened_boxes = tf.reshape(pred_boxes, (-1, tf.shape(pred_boxes)[-1]))
-
-        # 2. Get xywh, conf, class_probs of each box
-        boxes, box_conf, box_class_prob = \
-            tf.split(flattened_boxes, (4, 1, -1), axis=-1)
-
-        # 3. Get box scores        
-        box_scores = box_conf * tf.expand_dims(tf.reduce_max(box_class_prob, axis=-1), axis=-1)
-
-        # 4. Get box classes
-        box_classes = tf.argmax(box_class_prob, axis=-1, output_type=tf.int32)
-        box_classes = tf.expand_dims(box_classes, axis=-1)
-
-        # 5. Normalize xywh
-        boxes /= YOLO_INPUT_SIZE
-        boxes = tf.clip_by_value(boxes, clip_value_min=0, clip_value_max=1)
-
-        # 6. Split boxes and convert them to xmin, ymin, xmax, ymax
+    def _convert_boxes_from_xywh(self, boxes):
+        # Split boxes and convert them to xmin, ymin, xmax, ymax
         boxes_x, boxes_y, boxes_w, boxes_h = tf.split(boxes, (1, 1, 1, 1), axis=-1)
         boxes_x1 = tf.clip_by_value(boxes_x - boxes_w * 0.5, clip_value_min=0, clip_value_max=1)
         boxes_y1 = tf.clip_by_value( boxes_y - boxes_h * 0.5, clip_value_min=0, clip_value_max=1)
         boxes_x2 = tf.clip_by_value(boxes_x + boxes_w * 0.5, clip_value_min=0, clip_value_max=1)
         boxes_y2 = tf.clip_by_value(boxes_y + boxes_h * 0.5, clip_value_min=0, clip_value_max=1)
 
-        # 7. Take note of boxes that are big enough
-        big_enough_mask = ((boxes_x2 - boxes_x1) * (boxes_y2 - boxes_y1)) > TEST_AREA_THRESHOLD
-
-        # 8. Concatenate the transformed boxes
+        # Concatenate the transformed boxes
         boxes = tf.concat([boxes_x1, boxes_y1, boxes_x2, boxes_y2], axis=-1)
 
-        # 9. Take note of boxes that are confident enough
-        confident_enough_mask = box_scores > score_threshold
+        return boxes
 
-        # 10. Filter out boxes
-        boxes_to_keep_mask = tf.logical_and(big_enough_mask, confident_enough_mask)
-        boxes_to_keep_mask = tf.squeeze(boxes_to_keep_mask, axis=-1)
-        boxes = boxes[boxes_to_keep_mask]
-        box_scores = box_scores[boxes_to_keep_mask]
-        box_classes = box_classes[boxes_to_keep_mask]
+    def _normalize_boxes(self, boxes):
+        # Normalize xywh
+        boxes /= YOLO_INPUT_SIZE
+        boxes = tf.clip_by_value(boxes, clip_value_min=0, clip_value_max=1)
 
-        # 11. Apply non-max-suppression on the filtered boxes
-        selected_idx, box_scores = tf.image.non_max_suppression_with_scores(boxes, 
+        return boxes
+
+    def _rearrange_pred_boxes(self, pred_boxes):
+        # Flatten the boxes
+        flattened_boxes = tf.reshape(pred_boxes, (-1, tf.shape(pred_boxes)[-1]))
+
+        # Get xywh, conf, class_probs of each box
+        boxes, box_conf, box_class_prob = \
+            tf.split(flattened_boxes, (4, 1, -1), axis=-1)
+        
+        return boxes, box_conf, box_class_prob
+
+    def _get_box_scores(self, box_conf, box_class_prob):
+        # Get box scores        
+        box_scores = box_conf * tf.expand_dims(tf.reduce_max(box_class_prob, axis=-1), axis=-1)
+
+        return box_scores
+
+    def _get_box_classes(self, box_class_prob):
+        # Get box classes
+        box_classes = tf.argmax(box_class_prob, axis=-1, output_type=tf.int32)
+        box_classes = tf.expand_dims(box_classes, axis=-1)
+
+        return box_classes
+    
+    def _perform_nms(self, boxes, box_scores, box_classes):
+        # Apply non-max-suppression on the filtered boxes
+        selected_idx, selected_box_scores = tf.image.non_max_suppression_with_scores(boxes, 
                                                     tf.squeeze(box_scores, axis=-1),
                                                     10, 
-                                                    iou_threshold=iou_threshold, 
-                                                    score_threshold=score_threshold)
-        # 12. Filter selected_idx and box scores as output may be padded
-        pad_filter_mask = box_scores > score_threshold
-        box_scores = tf.expand_dims(box_scores, axis=-1)
+                                                    iou_threshold=self.iou_threshold, 
+                                                    score_threshold=self.score_threshold)
 
-        selected_idx = selected_idx[pad_filter_mask]
-        box_scores = box_scores[pad_filter_mask]
+        return selected_idx, selected_box_scores
 
-        # 13. Perform the nms filter proper        
-        # due to issues with tf.gather on tflite, make selected_idx into a mask instead
-        # boxes = tf.gather(boxes, selected_idx)
-        # classes = tf.gather(box_classes, selected_idx)
-        # scores = tf.gather(box_scores, selected_idx)
-        total_num_boxes = tf.shape(boxes)[0]
-        selected_mask = tf.one_hot(selected_idx, depth=total_num_boxes)
-        selected_mask = tf.reduce_sum(selected_mask, axis=0)
-        selected_mask = tf.cast(selected_mask, dtype=tf.bool)
+    def post_prediction_process(self, 
+                                pred_boxes):
+        boxes, box_conf, box_class_prob = self._rearrange_pred_boxes(pred_boxes)
 
-        boxes = boxes[selected_mask]
-        box_classes = box_classes[selected_mask]
+        boxes = self._normalize_boxes(boxes)
+        boxes = self._convert_boxes_from_xywh(boxes)
 
-        return boxes, box_scores, box_classes # , num_predictions (had problems accessing this via tflite c++ api, don't bother)
+        box_scores = self._get_box_scores(box_conf, box_class_prob)
+        box_classes = self._get_box_classes(box_class_prob)
+
+        selected_idx, selected_box_scores = self._perform_nms(boxes, box_scores, box_classes)
+        
+        return boxes, box_scores, box_classes, selected_idx, selected_box_scores
 
     def call(self, y_pred):
-        return self.post_prediction_process(y_pred, 
-                                            score_threshold=self.score_threshold, 
-                                            iou_threshold=self.iou_threshold,
-                                            area_threshold=self.area_threshold
-                                            )
+        return self.post_prediction_process(y_pred)
 
 if __name__ == '__main__':       
     if YOLO_FRAMEWORK == "tf": # TensorFlow detection

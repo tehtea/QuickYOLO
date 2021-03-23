@@ -63,15 +63,26 @@ class Demo:
     def initialize_fps_manager(self):
         self.fps_manager = FpsManager()
 
+    def postprocess(self, boxes, scores, classes, selected_idx, selected_box_scores):
+        selected_boxes, selected_scores, selected_classes = [], [], []
+        for selected_id, selected_box_score in zip(selected_idx, selected_box_scores):
+            if selected_box_score < 1e-6:
+                break
+            selected_boxes.append(boxes[selected_id])
+            selected_scores.append(selected_box_score)
+            selected_classes.append(int(classes[selected_id][0]))
+
+        return selected_boxes, selected_scores, selected_classes
+
     def infer(self, frame):
-        input_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        input_image = Image.fromarray(input_image)
+        input_image = Image.fromarray(frame)
         input_image = input_image.resize((INPUT_SIZE, INPUT_SIZE))
         input_image = np.asarray(input_image, dtype=np.float32) / 255.
 
         input_image = np.expand_dims(input_image, 0)
 
-        boxes, scores, classes = self.interpreter.predict(input_image)
+        boxes, scores, classes, selected_idx, selected_box_scores = self.interpreter.predict(input_image)
+        boxes, scores, classes = self.postprocess(boxes, scores, classes, selected_idx, selected_box_scores)
 
         return boxes, scores, classes
 
@@ -82,9 +93,6 @@ class Demo:
         thickness = 2
 
         for box, score, cls_id in zip(boxes, scores, classes):
-            cls_id = int(cls_id)
-            score = score[0]
-
             x1, y1, x2, y2 = box
             x1 = int(x1 * self.cam_width)
             y1 = int(y1 * self.cam_height)

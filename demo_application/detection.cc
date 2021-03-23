@@ -83,7 +83,7 @@ void test() {
   // declare the camera
   auto cam = cv::VideoCapture();
 
-  cam.open(1, cv::CAP_V4L);
+  cam.open(0, cv::CAP_V4L);
 
   // get camera resolution
   auto cam_width = cam.get(cv::CAP_PROP_FRAME_WIDTH);
@@ -108,12 +108,15 @@ void test() {
 
     // declare the output buffers
     TfLiteTensor* output_boxes_tensor = nullptr;
-    TfLiteTensor* output_scores_tensor = nullptr;
     TfLiteTensor* output_classes_tensor = nullptr;
+    TfLiteTensor* output_selected_idx_tensor = nullptr;
+    TfLiteTensor* output_selected_box_scores_tensor = nullptr;
 
     std::vector<float> locations_vector;
     std::vector<float> scores_vector;
     std::vector<int> classes_vector;
+    std::vector<int> selected_idx_vector;
+    std::vector<float> selected_box_scores_vector;
 
     // read frame from camera
     auto success = cam.read(original_image);
@@ -125,9 +128,6 @@ void test() {
 #if DO_INFERENCE == 1
     // Resize the original image
     resize(original_image, resized_image, Size(INPUT_SIZE, INPUT_SIZE));
-
-    // Convert image color (assume image was BGR)
-    cvtColor(resized_image, resized_image, COLOR_BGR2RGB);
 
     // Convert input image to Float and normalize
     resized_image.convertTo(resized_image, CV_32FC3, 1.0 / 255, 0);
@@ -146,23 +146,46 @@ void test() {
     output_boxes_tensor = interpreter->output_tensor(0);
     auto tmp_output_boxes = output_boxes_tensor->data.f;
 
-    output_scores_tensor = interpreter->output_tensor(1);
-    auto tmp_output_scores = output_scores_tensor->data.f;
-
     output_classes_tensor = interpreter->output_tensor(2);
     auto tmp_output_classes = output_classes_tensor->data.i32;
 
-    // get number of detections in output
-    auto num_detections = output_scores_tensor->bytes / sizeof(int32_t);
+    output_selected_idx_tensor = interpreter->output_tensor(3);
+    auto tmp_output_selected_idx = output_selected_idx_tensor->data.i32;
 
-    for (int i = 0; i < num_detections; i++) {
+    output_selected_box_scores_tensor = interpreter->output_tensor(4);
+    auto tmp_output_selected_box_scores = output_selected_box_scores_tensor->data.f;
+
+    auto num_selected_box_scores = output_selected_box_scores_tensor->bytes / sizeof(float32_t);
+
+    // filter out selected box scores
+    for (int i = 0; i < num_selected_box_scores; i++) {
+      auto score = tmp_output_selected_box_scores[i];
+      if (score < 1e-6) {
+        break;
+      }
+      selected_idx_vector.push_back(tmp_output_selected_idx[i]);
+      selected_box_scores_vector.push_back(score);
+    }
+
+    auto num_boxes = output_classes_tensor->bytes / sizeof(int32_t);
+
+    // get number of detections in output
+    for (int i = 0; i < num_boxes; i++) {
+      bool is_selected = false;
+      for (int j = 0; j < selected_idx_vector.size(); j++) {
+        if (i == selected_idx_vector[j]) {
+          is_selected = true;
+          scores_vector.push_back(tmp_output_selected_box_scores[i]);
+        }
+      }
+      if (!is_selected) {
+        continue;
+      }
       for (int j = 0; j < 4; j++) {
         auto output_box_coord = tmp_output_boxes[i * 4 + j];
         locations_vector.push_back(output_box_coord);
       }
-      scores_vector.push_back(tmp_output_scores[i]);
       classes_vector.push_back(tmp_output_classes[i]);
-      // std::cout << tmp_output_classes[i] << std::endl;
     }
 
     // scale the output boxes, then add them into a vector of bounding box

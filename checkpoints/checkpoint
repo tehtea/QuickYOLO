@@ -1,2 +1,2 @@
-model_checkpoint_path: "yolov3_custom_2"
-all_model_checkpoint_paths: "yolov3_custom_2"
+model_checkpoint_path: "quickyolov2_custom"
+all_model_checkpoint_paths: "quickyolov2_custom"
