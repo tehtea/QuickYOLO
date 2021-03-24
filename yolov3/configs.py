@@ -56,9 +56,9 @@ TRAIN_DATA_AUG              = True
 TRAIN_TRANSFER              = False # must be false for quickyolo
 TRAIN_FROM_CHECKPOINT       = False # "checkpoints/yolov3_custom"
 TRAIN_LR_INIT               = 1e-4
-TRAIN_LR_END                = 1e-7
+TRAIN_LR_END                = 1e-5 # dont forget to change back
 TRAIN_WARMUP_EPOCHS         = 2
-TRAIN_EPOCHS                = 90
+TRAIN_EPOCHS                = 25 # dont forget to change back
 
 # TEST options
 TEST_ANNOT_PATH             = "model_data/voc_test.txt"
@@ -68,8 +68,6 @@ TEST_DATA_AUG               = False
 TEST_DECTECTED_IMAGE_PATH   = ""
 TEST_SCORE_THRESHOLD        = 0.4
 TEST_IOU_THRESHOLD          = 0.5
-TEST_AREA_THRESHOLD         = 0.05
-
 
 #YOLOv3-TINY and YOLOv4-TINY WORKAROUND
 if TRAIN_YOLO_TINY:

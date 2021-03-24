@@ -16,8 +16,9 @@ import tensorflow as tf
 from tensorflow.python.saved_model import tag_constants
 from yolov3.dataset import Dataset
 from yolov3.yolov4 import Create_Yolo
-from yolov3.utils import load_yolo_weights, detect_image, image_preprocess, postprocess_boxes, nms, read_class_names
+from yolov3.utils import load_yolo_weights, detect_image, image_preprocess, read_class_names
 from yolov3.configs import *
+from yolov3.postprocessing import postprocess
 import shutil
 import json
 import time
@@ -153,8 +154,7 @@ def get_mAP(Yolo, dataset, score_threshold=0.25, iou_threshold=0.50, TEST_INPUT_
         pred_bbox = [tf.reshape(x, (-1, tf.shape(x)[-1])) for x in pred_bbox]
         pred_bbox = tf.concat(pred_bbox, axis=0)
 
-        bboxes = postprocess_boxes(pred_bbox, original_image, TEST_INPUT_SIZE, score_threshold)
-        bboxes = nms(bboxes, iou_threshold, method='nms')
+        bboxes = postprocess(pred_bbox, iou_threshold, score_threshold, filter_boxes=True, scale_up=True, original_image_size=original_image.shape[:2])
 
         for bbox in bboxes:
             coor = np.array(bbox[:4], dtype=np.int32)
