@@ -9,6 +9,7 @@
 #
 #================================================================
 import os
+import random as python_random
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 from tensorflow.python.client import device_lib
@@ -31,7 +32,14 @@ if YOLO_TYPE == "yolov2":
     Darknet_weights = YOLO_V2_WEIGHTS
 if TRAIN_YOLO_TINY: TRAIN_MODEL_NAME += "_Tiny"
 
+def reset_seeds():
+    np.random.seed(123)
+    python_random.seed(123)
+    tf.random.set_seed(123)
+
 def main():
+    reset_seeds()
+    
     global TRAIN_FROM_CHECKPOINT
     
     gpus = tf.config.experimental.list_physical_devices('GPU')

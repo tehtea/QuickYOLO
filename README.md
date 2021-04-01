@@ -32,7 +32,7 @@ For a quick demo, just skip to the deployment step with the provided
 1. Run `dataset_preparation/dataset_preparation.sh`
 2. Run `python dataset_preparation/migrate_data.py`
 3. Run `python dataset_preparation/flatten_voc.py`
-4. Run `mv VOCdevkit/train voc_data; mv VOCdevkit/test voc_data`
+4. Run `mv VOCdevkit/train voc_data && mv VOCdevkit/test voc_data`
 5. Run `python tools/XML_to_YOLOv3.py`
 
 ### 2. Train
