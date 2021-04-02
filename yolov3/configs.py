@@ -55,8 +55,8 @@ TRAIN_INPUT_SIZE            = YOLO_INPUT_SIZE
 TRAIN_DATA_AUG              = True
 TRAIN_TRANSFER              = False # must be false for quickyolo
 TRAIN_FROM_CHECKPOINT       = False # "checkpoints/yolov3_custom"
-TRAIN_LR_INIT               = 1e-4
-TRAIN_LR_END                = 1e-7
+TRAIN_LR_INIT               = 1e-3
+TRAIN_LR_END                = 1e-5
 TRAIN_WARMUP_EPOCHS         = 2
 TRAIN_EPOCHS                = 90
 

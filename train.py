@@ -106,7 +106,7 @@ def main():
             # update learning rate
             # about warmup: https://arxiv.org/pdf/1812.01187.pdf&usg=ALkJrhglKOPDjNt6SHGbphTHyMcT0cuMJg
             global_steps.assign_add(1)
-            if global_steps < warmup_steps:# and not TRAIN_TRANSFER:
+            if global_steps < warmup_steps:
                 lr = global_steps / warmup_steps * TRAIN_LR_INIT
             else:
                 lr = TRAIN_LR_END + 0.5 * (TRAIN_LR_INIT - TRAIN_LR_END)*(
