@@ -248,87 +248,125 @@ def bboxes_iou(boxes1, boxes2):
 
     return ious
 
+def nms_no_gather(bboxes, iou_threshold, num_classes=20):
+    """
+    :param bboxes: (xmin, ymin, xmax, ymax, score, class)
+    
+    Don't do gathering here because there is an issue in tflite when there are no boxes to gather
+    
+    TODO: add back soft-nms
+    """
+    boxes, scores, classes = tf.split(bboxes, (4, 1, 1), axis=-1)
+    selected_indices = tf.zeros((0,), dtype=tf.int32)
+    for cls_id in range(num_classes):
+        cls_mask = tf.cast(classes, dtype=tf.int32)
+        cls_mask = tf.equal(cls_mask, cls_id)
+        cls_mask = tf.cast(cls_mask, dtype=tf.float32)
+        cls_boxes = boxes * cls_mask
+        cls_scores = scores * cls_mask
+        cls_selected_indices = tf.image.non_max_suppression(
+            cls_boxes, 
+            tf.squeeze(cls_scores, axis=-1), 
+            3, 
+            iou_threshold, 
+            score_threshold=0.0)
+        selected_indices = tf.concat((selected_indices, cls_selected_indices), axis=-1)
 
-def nms(bboxes, iou_threshold, sigma=0.3, method='nms'):
+    combined_boxes = tf.concat((boxes, scores, classes), axis=-1)
+    
+    return combined_boxes, selected_indices
+
+def nms(bboxes, iou_threshold, sigma=0.3, method='nms', num_classes=20):
     """
     :param bboxes: (xmin, ymin, xmax, ymax, score, class)
 
-    Note: soft-nms, https://arxiv.org/pdf/1704.04503.pdf
-          https://github.com/bharatsingh430/soft-nms
     """
-    classes_in_img = list(set(bboxes[:, 5]))
-    best_bboxes = []
+    combined_boxes, selected_indices = nms_no_gather(bboxes, iou_threshold, num_classes)
+    combined_boxes = tf.gather(combined_boxes, selected_indices)
 
-    for cls in classes_in_img:
-        cls_mask = (bboxes[:, 5] == cls)
-        cls_bboxes = bboxes[cls_mask]
-        # Process 1: Determine whether the number of bounding boxes is greater than 0 
-        while len(cls_bboxes) > 0:
-            # Process 2: Select the bounding box with the highest score according to socre order A
-            max_ind = np.argmax(cls_bboxes[:, 4])
-            best_bbox = cls_bboxes[max_ind]
-            best_bboxes.append(best_bbox)
-            cls_bboxes = np.concatenate([cls_bboxes[: max_ind], cls_bboxes[max_ind + 1:]])
-            # Process 3: Calculate this bounding box A and
-            # Remain all iou of the bounding box and remove those bounding boxes whose iou value is higher than the threshold 
-            iou = bboxes_iou(best_bbox[np.newaxis, :4], cls_bboxes[:, :4])
-            weight = np.ones((len(iou),), dtype=np.float32)
+    return combined_boxes
 
-            assert method in ['nms', 'soft-nms']
+def postprocess_boxes(pred_bbox, original_image=None, input_size=YOLO_INPUT_SIZE, score_threshold=TEST_SCORE_THRESHOLD):
+    """
+    Return boxes: (x1, y1, x2, y2, score, class)
+    """
+    def _rearrange_pred_boxes(pred_boxes):
+        # Flatten the boxes
+        flattened_boxes = tf.reshape(pred_boxes, (-1, tf.shape(pred_boxes)[-1]))
 
-            if method == 'nms':
-                iou_mask = iou > iou_threshold
-                weight[iou_mask] = 0.0
+        # Get xywh, conf, class_probs of each box
+        boxes, box_conf, box_class_prob = \
+            tf.split(flattened_boxes, (4, 1, -1), axis=-1)
+        
+        return boxes, box_conf, box_class_prob
 
-            if method == 'soft-nms':
-                weight = np.exp(-(1.0 * iou ** 2 / sigma))
+    def _normalize_boxes(boxes):
+        # Normalize xywh
+        boxes /= input_size
+        boxes = tf.clip_by_value(boxes, clip_value_min=0, clip_value_max=1)
 
-            cls_bboxes[:, 4] = cls_bboxes[:, 4] * weight
-            score_mask = cls_bboxes[:, 4] > 0.
-            cls_bboxes = cls_bboxes[score_mask]
+        return boxes
 
-    return best_bboxes
+    def _convert_boxes_from_xywh(boxes):
+        # Split boxes and convert them to xmin, ymin, xmax, ymax
+        boxes_x, boxes_y, boxes_w, boxes_h = tf.split(boxes, (1, 1, 1, 1), axis=-1)
+        boxes_x1 = tf.clip_by_value(boxes_x - boxes_w * 0.5, clip_value_min=0, clip_value_max=1)
+        boxes_y1 = tf.clip_by_value( boxes_y - boxes_h * 0.5, clip_value_min=0, clip_value_max=1)
+        boxes_x2 = tf.clip_by_value(boxes_x + boxes_w * 0.5, clip_value_min=0, clip_value_max=1)
+        boxes_y2 = tf.clip_by_value(boxes_y + boxes_h * 0.5, clip_value_min=0, clip_value_max=1)
 
+        # Concatenate the transformed boxes
+        boxes = tf.concat([boxes_x1, boxes_y1, boxes_x2, boxes_y2], axis=-1)
 
-def postprocess_boxes(pred_bbox, original_image, input_size, score_threshold):
-    valid_scale=[0, np.inf]
-    pred_bbox = np.array(pred_bbox)
+        return boxes
 
-    pred_xywh = pred_bbox[:, 0:4]
-    pred_conf = pred_bbox[:, 4]
-    pred_prob = pred_bbox[:, 5:]
+    def _get_box_scores(box_conf, box_class_prob):
+        # Get box scores        
+        box_scores = box_conf * tf.expand_dims(tf.reduce_max(box_class_prob, axis=-1), axis=-1)
 
-    # 1. (x, y, w, h) --> (xmin, ymin, xmax, ymax)
-    pred_coor = np.concatenate([pred_xywh[:, :2] - pred_xywh[:, 2:] * 0.5,
-                                pred_xywh[:, :2] + pred_xywh[:, 2:] * 0.5], axis=-1)
-    # 2. (xmin, ymin, xmax, ymax) -> (xmin_org, ymin_org, xmax_org, ymax_org)
-    org_h, org_w = original_image.shape[:2]
-    resize_ratio = min(input_size / org_w, input_size / org_h)
+        return box_scores
+        
+    def _get_box_classes(box_class_prob):
+        # Get box classes
+        box_classes = tf.argmax(box_class_prob, axis=-1, output_type=tf.int32)
+        box_classes = tf.expand_dims(box_classes, axis=-1)
 
-    dw = (input_size - resize_ratio * org_w) / 2
-    dh = (input_size - resize_ratio * org_h) / 2
+        return box_classes
 
-    pred_coor[:, 0::2] = 1.0 * (pred_coor[:, 0::2] - dw) / resize_ratio
-    pred_coor[:, 1::2] = 1.0 * (pred_coor[:, 1::2] - dh) / resize_ratio
+    def _scale_boxes_up(boxes):
+        # scale the boxes up w.r.t original_image
+        original_h, original_w = original_image.shape[:2]
+        boxes_x1, boxes_y1, boxes_x2, boxes_y2 = tf.split(boxes, (1, 1, 1, 1), axis=-1)
+        boxes_x1 *= original_w
+        boxes_x2 *= original_w
+        boxes_y1 *= original_h
+        boxes_y2 *= original_h
 
-    # 3. clip some boxes those are out of range
-    pred_coor = np.concatenate([np.maximum(pred_coor[:, :2], [0, 0]),
-                                np.minimum(pred_coor[:, 2:], [org_w - 1, org_h - 1])], axis=-1)
-    invalid_mask = np.logical_or((pred_coor[:, 0] > pred_coor[:, 2]), (pred_coor[:, 1] > pred_coor[:, 3]))
-    pred_coor[invalid_mask] = 0
+        return tf.concat((boxes_x1, boxes_y1, boxes_x2, boxes_y2), axis=-1)
 
-    # 4. discard some invalid boxes
-    bboxes_scale = np.sqrt(np.multiply.reduce(pred_coor[:, 2:4] - pred_coor[:, 0:2], axis=-1))
-    scale_mask = np.logical_and((valid_scale[0] < bboxes_scale), (bboxes_scale < valid_scale[1]))
+    def _discard_noob_boxes(boxes, scores, classes):
+        # discard boxes with low scores
+        score_mask = scores > score_threshold
+        score_mask = tf.squeeze(score_mask, axis=-1)
+        boxes = boxes[score_mask]
+        scores = scores[score_mask]
+        classes = classes[score_mask]
 
-    # 5. discard boxes with low scores
-    classes = np.argmax(pred_prob, axis=-1)
-    scores = pred_conf * pred_prob[np.arange(len(pred_coor)), classes]
-    score_mask = scores > score_threshold
-    mask = np.logical_and(scale_mask, score_mask)
-    coors, scores, classes = pred_coor[mask], scores[mask], classes[mask]
+        return boxes, scores, classes
 
-    return np.concatenate([coors, scores[:, np.newaxis], classes[:, np.newaxis]], axis=-1)
+    boxes, box_conf, box_class_prob = _rearrange_pred_boxes(pred_bbox)
+    boxes = _normalize_boxes(boxes)
+    boxes = _convert_boxes_from_xywh(boxes)
+    if original_image is not None:
+        boxes = _scale_boxes_up(boxes)
+    
+    box_scores = _get_box_scores(box_conf, box_class_prob)
+    box_classes = _get_box_classes(box_class_prob)
+    box_classes = tf.cast(box_classes, dtype=tf.float32)
+
+    boxes, box_scores, box_classes = _discard_noob_boxes(boxes, box_scores, box_classes)
+
+    return tf.concat((boxes, box_scores, box_classes), axis=-1)
 
 
 def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLASSES=YOLO_COCO_CLASSES, score_threshold=0.3, iou_threshold=0.45, rectangle_colors=''):
