@@ -28,12 +28,19 @@ The example model is based off YOLOv2, with QuickNet as the backbone, and a head
 For a quick demo, just skip to the deployment step with the provided 
 `model.tflite` and `labelmap.tflite` in `demo_application/`
 
-### 1. Prepare datset
-1. Run `dataset_preparation/dataset_preparation.sh`
+### 1. Prepare dataset
+1. Run `dataset_preparation/dataset_preparation.sh` / `dataset_preparation/dataset_preparation_no_download.sh` if already downloaded dataset
 2. Run `python dataset_preparation/migrate_data.py`
 3. Run `python dataset_preparation/flatten_voc.py`
-4. Run `mv VOCdevkit/train voc_data && mv VOCdevkit/test voc_data`
-5. Run `python tools/XML_to_YOLOv3.py`
+4. Run `mkdir voc_data` 
+5. Run `mv VOCdevkit/train voc_data && mv VOCdevkit/test voc_data`
+6. Run `python tools/XML_to_YOLOv3.py`
+
+(Cleanup in case of messups)
+1. rm -rf VOCdevkit/
+2. rm -rf VOC2007Trainval/
+3. rm -rf voc_data
+4. Repeat the process with `dataset_preparation_no_download.sh` in step 1 instead.
 
 ### 2. Train
 1. Run `python train.py`
