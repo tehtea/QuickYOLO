@@ -16,7 +16,7 @@ def remove_train_test_duplicates():
         duplicate_image = os.path.splitext(duplicate_file[1])[0] + '.jpg'
         os.remove(duplicate_annotation)
         os.remove(duplicate_image)
-    print(f'{len(duplicate_files)} files removed from train set!')
+    print(f'{len(duplicate_files)} files removed from test set!')
 
 if __name__ == '__main__':
     remove_train_test_duplicates()
