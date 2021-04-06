@@ -32,10 +32,11 @@ For a quick demo, just skip to the deployment step with the provided
 1. Run `dataset_preparation/dataset_preparation.sh` / `dataset_preparation/dataset_preparation_no_download.sh` if already downloaded dataset
 2. Run `python dataset_preparation/migrate_data.py`
 3. Run `python dataset_preparation/flatten_voc.py`
-4. Run `python dataset_preparation/remove_train_test_duplicates.py`
 4. Run `mkdir voc_data` 
 5. Run `mv VOCdevkit/train voc_data && mv VOCdevkit/test voc_data`
-6. Run `python tools/XML_to_YOLOv3.py`
+6. Run `python dataset_preparation/remove_train_test_duplicates.py`
+7. (Optional) If you want to make sure the datset prepared is valid, run `python dataset_preparation/check_voc_dataset_sanity.py`
+8. Run `python tools/XML_to_YOLOv3.py`
 
 (Cleanup in case of messups)
 1. Run `rm -rf VOCdevkit/ && rm -rf VOC2007Trainval/ && rm -rf voc_data`
