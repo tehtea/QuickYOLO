@@ -63,13 +63,14 @@ class Demo:
     def initialize_fps_manager(self):
         self.fps_manager = FpsManager()
 
-    def postprocess(self, boxes, scores, classes, selected_idx):
+    def postprocess(self, boxes, scores, classes, selected_idx, selected_box_scores):
         selected_boxes, selected_scores, selected_classes = [], [], []
-        selected_idx = selected_idx[selected_idx > 0] # we don't use id 0 because selected_idx from tflite is zero-padded
-        for selected_id in selected_idx:
+        for selected_id, selected_box_score in zip(selected_idx, selected_box_scores):
+            if selected_box_score < 1e-6:
+                break
             selected_boxes.append(boxes[selected_id])
-            selected_scores.append(scores[selected_id])
-            selected_classes.append(classes[selected_id])
+            selected_scores.append(selected_box_score)
+            selected_classes.append(int(classes[selected_id][0]))
 
         return selected_boxes, selected_scores, selected_classes
 
@@ -80,8 +81,8 @@ class Demo:
 
         input_image = np.expand_dims(input_image, 0)
 
-        boxes, scores, classes, selected_idx = self.interpreter.predict(input_image)
-        boxes, scores, classes = self.postprocess(boxes, scores, classes, selected_idx)
+        boxes, scores, classes, selected_idx, selected_box_scores = self.interpreter.predict(input_image)
+        boxes, scores, classes = self.postprocess(boxes, scores, classes, selected_idx, selected_box_scores)
 
         return boxes, scores, classes
 
