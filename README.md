@@ -7,7 +7,7 @@ It is forked from https://github.com/pythonlessons/TensorFlow-2.x-YOLOv3, which 
 Libraries used:
 
 - Larq 0.11.2
-- TensorFlow 2.3.2
+- TensorFlow 2.3.2 (Unexpected behaviour may show up if using TensorFlow 2.4, see [this issue](https://github.com/tehtea/QuickYOLO/issues/3))
 - OpenCV 4
 
 Platform tested on:
@@ -32,15 +32,14 @@ For a quick demo, just skip to the deployment step with the provided
 1. Run `dataset_preparation/dataset_preparation.sh` / `dataset_preparation/dataset_preparation_no_download.sh` if already downloaded dataset
 2. Run `python dataset_preparation/migrate_data.py`
 3. Run `python dataset_preparation/flatten_voc.py`
+4. Run `python dataset_preparation/remove_train_test_duplicates.py`
 4. Run `mkdir voc_data` 
 5. Run `mv VOCdevkit/train voc_data && mv VOCdevkit/test voc_data`
 6. Run `python tools/XML_to_YOLOv3.py`
 
 (Cleanup in case of messups)
-1. rm -rf VOCdevkit/
-2. rm -rf VOC2007Trainval/
-3. rm -rf voc_data
-4. Repeat the process with `dataset_preparation_no_download.sh` in step 1 instead.
+1. Run `rm -rf VOCdevkit/ && rm -rf VOC2007Trainval/ && rm -rf voc_data`
+2. Repeat the process with `dataset_preparation_no_download.sh` in step 1 instead.
 
 ### 2. Train
 1. Run `python train.py`

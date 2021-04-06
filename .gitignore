@@ -8,3 +8,8 @@ voc_data/
 predictions/
 *.pyc
 *.out.tfevents*
+
+# ignore VOC files
+VOC2007Trainval/
+VOCdevkit/
+*.tar
