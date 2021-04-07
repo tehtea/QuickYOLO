@@ -34,8 +34,6 @@
 #define MODEL_FILE "model.tflite"
 #define LABEL_MAP_FILE "labelmap.txt"
 #define NUM_THREADS 4
-#define DO_INFERENCE 1
-#define MAX_BOXES 50
 
 #define NO_PRESS 255
 
@@ -50,6 +48,11 @@ struct Object {
   float prob;
 };
 
+// global variables
+int frame_counter = 0;
+std::time_t time_begin = std::time(0);
+std::time_t last_delta_t = 0;
+
 std::vector<std::string> initialize_labels() {
   // get the list of labels from labelmap
   std::vector<std::string> labels;
@@ -58,6 +61,102 @@ std::vector<std::string> initialize_labels() {
     labels.push_back(line);
   }
   return labels;
+}
+
+void preprocess(
+  cv::VideoCapture& cam,
+  cv::Mat& original_image,
+  cv::Mat& resized_image
+) {
+  // read frame from camera
+  auto success = cam.read(original_image);
+  if (!success) {
+    std::cerr << "cam fail" << std::endl;
+    throw new exception();
+  }
+
+  // Resize the original image
+  resize(original_image, resized_image, Size(INPUT_SIZE, INPUT_SIZE));
+
+  // Convert input image to Float and normalize
+  resized_image.convertTo(resized_image, CV_32FC3, 1.0 / 255, 0);
+}
+
+std::vector<Object> postprocess(
+  float* output_scores_tensor,
+  float* output_boxes_tensor,
+  int* output_classes_tensor,
+  int* output_selected_idx_tensor,
+  unsigned long num_selected_idx,
+  double cam_width,
+  double cam_height
+) {
+  // filter selected_idx to get non-zeros (don't use selected_idx == 0 because output is zero-padded by tflite)
+  std::vector<int> selected_idx;
+  for (int i = 0; i < num_selected_idx; i++) {
+    auto selected_id = output_selected_idx_tensor[i];
+    if (selected_id == 0) {
+      continue;
+    }
+    selected_idx.push_back(selected_id);
+  }
+
+  // populate the vector of objects
+  std::vector<Object> objects;
+  for (auto selected_id : selected_idx) {
+    // get box dimensions
+    auto xmin = output_boxes_tensor[selected_id * 4 + 0] * cam_width;
+    auto ymin = output_boxes_tensor[selected_id * 4 + 1] * cam_height;
+    auto xmax = output_boxes_tensor[selected_id * 4 + 2] * cam_width;
+    auto ymax = output_boxes_tensor[selected_id * 4 + 3] * cam_height;
+    auto width = xmax - xmin;
+    auto height = ymax - ymin;
+
+    // populate an object proper
+    Object object;
+    object.class_id = output_classes_tensor[selected_id];
+    object.rec.x = xmin;
+    object.rec.y = ymin;
+    object.rec.width = width;
+    object.rec.height = height;
+    object.prob = output_scores_tensor[selected_id];
+    objects.push_back(object);
+  }
+
+  return objects;
+}
+
+void draw_boxes(std::vector<Object> objects, cv::Mat& original_image, std::vector<string>& labels) {
+  // show the bounding boxes on GUI
+  for (int l = 0; l < objects.size(); l++) {
+    Object object = objects.at(l);
+    auto score = object.prob;
+    auto score_rounded = ((float)((int)(score * 100 + 0.5)) / 100);
+
+    Scalar color = Scalar(255, 0, 0);
+    auto class_id = object.class_id;
+    auto class_label = labels[class_id];
+
+    std::ostringstream label_txt_stream;
+    label_txt_stream << class_label << " (" << score_rounded << ")";
+    std::string label_txt = label_txt_stream.str();
+
+    cv::rectangle(original_image, object.rec, color, 1);
+    cv::putText(original_image, 
+                label_txt,
+                cv::Point(object.rec.x, object.rec.y - 5),
+                cv::FONT_HERSHEY_COMPLEX, .8, cv::Scalar(10, 255, 30));
+  }
+}
+
+void profile_execution() {
+  frame_counter++;
+  std::time_t delta_t = std::time(0) - time_begin;
+  if (delta_t % 60 == 0 && delta_t != last_delta_t) { // delta_t % 60 == 0 can be true multiple times
+    std::cout << "Frames Processed in the last minute: " << frame_counter << std::endl;
+    frame_counter = 0;
+    last_delta_t = delta_t;
+  }
 }
 
 void test() {
@@ -81,9 +180,7 @@ void test() {
   std::cout << "Initialized interpreter and labels" << std::endl;
 
   // declare the camera
-  auto cam = cv::VideoCapture();
-
-  cam.open(0, cv::CAP_V4L);
+  auto cam = cv::VideoCapture(0, cv::CAP_V4L);
 
   // get camera resolution
   auto cam_width = cam.get(cv::CAP_PROP_FRAME_WIDTH);
@@ -92,166 +189,65 @@ void test() {
   std::cout << "Got the camera, see cam_width and cam_height: " << cam_width
             << ',' << cam_height << std::endl;
 
-  // initialize the FPS tracking variables
-  high_resolution_clock::time_point previous_frame_time =
-      high_resolution_clock::now();
-  high_resolution_clock::time_point current_frame_time;
+  // initialize frame counter
+  int frameCounter = 0;
+  std::time_t timeBegin = std::time(0);
 
   // allocate tensor before inference loop
   TFLITE_MINIMAL_CHECK(interpreter->AllocateTensors() == kTfLiteOk);
-
+  
   // start camera loop
   while (true) {
     // declare image buffers
     cv::Mat original_image;
     cv::Mat resized_image;
 
-    // declare the output buffers
-    TfLiteTensor* output_boxes_tensor = nullptr;
-    TfLiteTensor* output_classes_tensor = nullptr;
-    TfLiteTensor* output_selected_idx_tensor = nullptr;
-    TfLiteTensor* output_selected_box_scores_tensor = nullptr;
-
-    std::vector<float> locations_vector;
-    std::vector<float> scores_vector;
-    std::vector<int> classes_vector;
-    std::vector<int> selected_idx_vector;
-    std::vector<float> selected_box_scores_vector;
-
-    // read frame from camera
-    auto success = cam.read(original_image);
-    if (!success) {
-      std::cout << "cam fail" << std::endl;
-      break;
-    }
-
-#if DO_INFERENCE == 1
-    // Resize the original image
-    resize(original_image, resized_image, Size(INPUT_SIZE, INPUT_SIZE));
-
-    // Convert input image to Float and normalize
-    resized_image.convertTo(resized_image, CV_32FC3, 1.0 / 255, 0);
+    preprocess(
+      cam,
+      original_image,
+      resized_image
+    );
 
     // Declare the input
     float* input = interpreter->typed_input_tensor<float>(0);
 
     // feed input
     memcpy(input, resized_image.data,
-           resized_image.total() * resized_image.elemSize());
+            resized_image.total() * resized_image.elemSize());
 
     // run inference
     TFLITE_MINIMAL_CHECK(interpreter->Invoke() == kTfLiteOk);
 
-    // get outputs
-    output_boxes_tensor = interpreter->output_tensor(0);
-    auto tmp_output_boxes = output_boxes_tensor->data.f;
+    // declare the output buffers
+    float* output_boxes_tensor = interpreter->typed_output_tensor<float>(0);
+    float* output_scores_tensor = interpreter->typed_output_tensor<float>(1);
+    int* output_classes_tensor = interpreter->typed_output_tensor<int>(2);
+    int* output_selected_idx_tensor = interpreter->typed_output_tensor<int>(3);
 
-    output_classes_tensor = interpreter->output_tensor(2);
-    auto tmp_output_classes = output_classes_tensor->data.i32;
+    auto num_selected_idx = *(interpreter->output_tensor(3)->dims[0].data);
 
-    output_selected_idx_tensor = interpreter->output_tensor(3);
-    auto tmp_output_selected_idx = output_selected_idx_tensor->data.i32;
+    // get boxes from the output buffers
+    std::vector<Object> objects = postprocess(
+      output_scores_tensor, 
+      output_boxes_tensor, 
+      output_classes_tensor, 
+      output_selected_idx_tensor, 
+      num_selected_idx,
+      cam_width,
+      cam_height
+    );
 
-    output_selected_box_scores_tensor = interpreter->output_tensor(4);
-    auto tmp_output_selected_box_scores = output_selected_box_scores_tensor->data.f;
+    // draw the boxes on the original image
+    draw_boxes(objects, original_image, labels);
 
-    auto num_selected_box_scores = output_selected_box_scores_tensor->bytes / sizeof(float32_t);
-
-    // filter out selected box scores
-    for (int i = 0; i < num_selected_box_scores; i++) {
-      auto score = tmp_output_selected_box_scores[i];
-      if (score < 1e-6) {
-        break;
-      }
-      selected_idx_vector.push_back(tmp_output_selected_idx[i]);
-      selected_box_scores_vector.push_back(score);
-    }
-
-    auto num_boxes = output_classes_tensor->bytes / sizeof(int32_t);
-
-    // get number of detections in output
-    for (int i = 0; i < num_boxes; i++) {
-      bool is_selected = false;
-      for (int j = 0; j < selected_idx_vector.size(); j++) {
-        if (i == selected_idx_vector[j]) {
-          is_selected = true;
-          scores_vector.push_back(tmp_output_selected_box_scores[i]);
-        }
-      }
-      if (!is_selected) {
-        continue;
-      }
-      for (int j = 0; j < 4; j++) {
-        auto output_box_coord = tmp_output_boxes[i * 4 + j];
-        locations_vector.push_back(output_box_coord);
-      }
-      classes_vector.push_back(tmp_output_classes[i]);
-    }
-
-    // scale the output boxes, then add them into a vector of bounding box
-    // objects
-    int count = 0;
-    std::vector<Object> objects;
-
-    for (int j = 0; j < locations_vector.size(); j += 4) {
-      auto xmin = locations_vector[j] * cam_width;
-      auto ymin = locations_vector[j + 1] * cam_height;
-      auto xmax = locations_vector[j + 2] * cam_width;
-      auto ymax = locations_vector[j + 3] * cam_height;
-
-      auto width = xmax - xmin;
-      auto height = ymax - ymin;
-
-      Object object;
-      object.class_id = classes_vector[count];
-      object.rec.x = xmin;
-      object.rec.y = ymin;
-      object.rec.width = width;
-      object.rec.height = height;
-      object.prob = scores_vector[count];
-      objects.push_back(object);
-
-      count += 1;
-    }
-
-    // show the bounding boxes on GUI
-    for (int l = 0; l < objects.size(); l++) {
-      Object object = objects.at(l);
-      auto score = object.prob;
-      auto score_rounded = ((float)((int)(score * 100 + 0.5)) / 100);
-
-      Scalar color = Scalar(255, 0, 0);
-      auto class_id = object.class_id;
-      auto class_label = labels[class_id];
-
-      std::ostringstream label_txt_stream;
-      label_txt_stream << class_label << " (" << score_rounded << ")";
-      std::string label_txt = label_txt_stream.str();
-
-      cv::rectangle(original_image, object.rec, color, 1);
-      cv::putText(original_image, label_txt,
-                  cv::Point(object.rec.x, object.rec.y - 5),
-                  cv::FONT_HERSHEY_COMPLEX, .8, cv::Scalar(10, 255, 30));
-    }
-#endif
-
-    // calculate FPS
-    current_frame_time = high_resolution_clock::now();
-    auto delta_time =
-        duration_cast<microseconds>(current_frame_time - previous_frame_time);
-    previous_frame_time = current_frame_time;
-    auto fps = pow(10, 6) / delta_time.count();
-    auto fps_string = format("%.2f FPS", fps);
-
-    // put FPS on screen
-    cv::putText(original_image, fps_string, cv::Point(40, 40),
-                cv::FONT_HERSHEY_COMPLEX, 1.0, cv::Scalar(10, 255, 50), 2);
+    // profile the code whenever you can
+    profile_execution();
 
     // show image on screen
-    cv::imshow("cam", original_image);
+    cv::imshow("QuickYOLO", original_image);
 
-    // go to next frame after 30ms if no key pressed
-    auto k = cv::waitKey(30) & 0xFF;
+    // go to next frame after 1ms if no key pressed
+    auto k = cv::waitKey(1) & 0xFF;
     if (k != NO_PRESS) {
       std::cout << "See k: " << k << std::endl;
       break;
