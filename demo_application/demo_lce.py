@@ -101,7 +101,7 @@ class Demo:
 
             prediction_text = f'{self.labels[cls_id]} ({str(round(score, 3))})'
 
-            cv2.putText(original_frame, prediction_text, (x1, y1), font, size, color, thickness)
+            cv2.putText(original_frame, prediction_text, (x1 - size * 2, y1 - size * 2), font, size, color, thickness)
             cv2.rectangle(original_frame, (x1, y1), (x2, y2), color, thickness)
 
     def display_predictions(self, boxes, scores, classes, original_frame):
