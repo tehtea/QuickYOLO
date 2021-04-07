@@ -1,14 +1,14 @@
 bicycle
 person
 train
-car
 horse
 cat
-dog
 pottedplant
+dog
 chair
 bottle
 sofa
+car
 aeroplane
 tvmonitor
 bird

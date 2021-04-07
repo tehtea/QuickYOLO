@@ -275,13 +275,13 @@ def nms_no_gather(bboxes, iou_threshold, num_classes=20):
 
     combined_boxes = tf.concat((boxes, scores, classes), axis=-1)
     
-    return combined_boxes, selected_indices
+    return selected_indices
 
 def nms(bboxes, iou_threshold, sigma=0.3, method='nms', num_classes=20):
     """
     :param bboxes: (xmin, ymin, xmax, ymax, score, class)
     """
-    combined_boxes, selected_indices = nms_no_gather(bboxes, iou_threshold, num_classes)
+    selected_indices = nms_no_gather(bboxes, iou_threshold, num_classes)
     combined_boxes = tf.gather(combined_boxes, selected_indices)
 
     return combined_boxes
@@ -310,6 +310,9 @@ def postprocess_boxes(pred_bbox, original_image=None, input_size=YOLO_INPUT_SIZE
         pred_ymin_ymax = pred_coor[:, 1::2]
         pred_ymin_ymax = 1.0 * (pred_ymin_ymax - dh) / resize_ratio
         pred_coor = tf.concat([pred_xmin_xmax[:, 0:1], pred_ymin_ymax[:, 0:1], pred_xmin_xmax[:, 1:2], pred_ymin_ymax[:, 1:2]], axis=-1)
+    # if original image not provided, normalize (xmin, ymin, xmax, ymax) to [0, 1]
+    else:
+        pred_coor = pred_coor / input_size
 
     # 3. clip some boxes those are out of range
     if original_image is not None:

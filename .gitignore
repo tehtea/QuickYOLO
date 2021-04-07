@@ -13,3 +13,6 @@ predictions/
 VOC2007Trainval/
 VOCdevkit/
 *.tar
+
+# ignore prediction outputs
+pred_*.jpg

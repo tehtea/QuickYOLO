@@ -20,19 +20,16 @@ if len(gpus) > 0:
 
 # Custom Keras layer, for easy exporting
 class PostProcess(tf.keras.layers.Layer):
-
-    def __init__(self, iou_threshold, **kwargs):
+    def __init__(self, iou_threshold, score_threshold, **kwargs):
         self.iou_threshold = iou_threshold
+        self.score_threshold = score_threshold
         super(PostProcess, self).__init__(**kwargs)
 
     def post_prediction_process(self, 
                                 pred_boxes):
-        # pred_bbox = [tf.reshape(x, (-1, tf.shape(x)[-1])) for x in pred_bbox]
-        # pred_bbox = tf.concat(pred_bbox, axis=0)
-        pred_boxes = tf.reshape(pred_boxes, (-1, tf.shape(pred_boxes)[-1]))
-        print(pred_boxes)
-        boxes = postprocess_boxes(pred_boxes)
-        boxes, selected_indices = nms_no_gather(boxes, iou_threshold=self.iou_threshold)
+        flattened_boxes = tf.reshape(pred_boxes, (-1, tf.shape(pred_boxes)[-1]))
+        boxes = postprocess_boxes(flattened_boxes, score_threshold=self.score_threshold)
+        selected_indices = nms_no_gather(boxes, iou_threshold=self.iou_threshold)
 
         boxes, box_scores, box_classes = tf.split(boxes, (4, 1, 1), axis=-1)
         box_scores = tf.squeeze(box_scores, axis=-1)
@@ -65,7 +62,7 @@ if __name__ == '__main__':
         signature_keys = list(saved_model_loaded.signatures.keys())
         yolo = saved_model_loaded.signatures['serving_default']
 
-    post_processed_output = PostProcess(TEST_IOU_THRESHOLD)(yolo.output)
+    post_processed_output = PostProcess(TEST_IOU_THRESHOLD, TEST_SCORE_THRESHOLD)(yolo.output)
     yolo = tf.keras.models.Model(yolo.input, post_processed_output)
 
     flatbuffer_bytes = lce.convert_keras_model(yolo)

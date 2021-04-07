@@ -6,6 +6,7 @@ References:
 - https://stackoverflow.com/questions/5998245/get-current-time-in-milliseconds-in-python
 """
 from datetime import datetime
+from glob import glob
 
 import numpy as np
 import cv2
@@ -63,14 +64,13 @@ class Demo:
     def initialize_fps_manager(self):
         self.fps_manager = FpsManager()
 
-    def postprocess(self, boxes, scores, classes, selected_idx, selected_box_scores):
+    def postprocess(self, boxes, scores, classes, selected_idx):
         selected_boxes, selected_scores, selected_classes = [], [], []
-        for selected_id, selected_box_score in zip(selected_idx, selected_box_scores):
-            if selected_box_score < 1e-6:
-                break
+        selected_idx = selected_idx[selected_idx > 0] # we don't use id 0 because selected_idx from tflite is zero-padded
+        for selected_id in selected_idx:
             selected_boxes.append(boxes[selected_id])
-            selected_scores.append(selected_box_score)
-            selected_classes.append(int(classes[selected_id][0]))
+            selected_scores.append(scores[selected_id])
+            selected_classes.append(classes[selected_id])
 
         return selected_boxes, selected_scores, selected_classes
 
@@ -81,12 +81,12 @@ class Demo:
 
         input_image = np.expand_dims(input_image, 0)
 
-        boxes, scores, classes, selected_idx, selected_box_scores = self.interpreter.predict(input_image)
-        boxes, scores, classes = self.postprocess(boxes, scores, classes, selected_idx, selected_box_scores)
+        boxes, scores, classes, selected_idx = self.interpreter.predict(input_image)
+        boxes, scores, classes = self.postprocess(boxes, scores, classes, selected_idx)
 
         return boxes, scores, classes
 
-    def display_predictions(self, boxes, scores, classes, original_frame):
+    def draw_on_frame(self, boxes, scores, classes, original_frame):
         font = cv2.FONT_HERSHEY_SIMPLEX
         size = 0.6
         color = (255, 0, 0)  # Blue color
@@ -104,6 +104,8 @@ class Demo:
             cv2.putText(original_frame, prediction_text, (x1, y1), font, size, color, thickness)
             cv2.rectangle(original_frame, (x1, y1), (x2, y2), color, thickness)
 
+    def display_predictions(self, boxes, scores, classes, original_frame):
+        self.draw_on_frame(boxes, scores, classes, original_frame)
         cv2.imshow('Object Detection', original_frame)
 
     def display_fps(self, original_frame):
@@ -117,7 +119,17 @@ class Demo:
         fps_string = f'FPS: {fps}'
         cv2.putText(original_frame, fps_string, (30, 30), font, size, color, thickness)
 
-    def run(self):
+    def run_on_images(self):
+        test_images = glob('../voc_data/test/*.jpg')
+        test_images = np.random.choice(test_images, size=10)
+        for i, test_image in enumerate(test_images):
+            output_path = f'../IMAGES/pred_{i}.jpg'
+            frame = cv2.imread(test_image)
+
+            boxes, scores, classes = self.infer(frame)
+            self.display_predictions(boxes, scores, classes, frame, show=show, output_path=output_path)
+
+    def run_on_webcam(self):
         # start camera loop
         while True:
             ret, frame = self.cam.read()
@@ -136,5 +148,10 @@ class Demo:
         cv2.destroyAllWindows()
 
 if __name__ == '__main__':
+    show_images = True # change accordingly
+    show_webcam = not show_images
     demo = Demo()
-    demo.run()
+    if show_images:
+        demo.run_on_images()
+    elif show_webcam:
+        demo.run_on_webcam()
