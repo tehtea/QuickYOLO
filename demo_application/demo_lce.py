@@ -35,8 +35,6 @@ class Demo:
     def __init__(self):
         self.initialize_labels()
         self.load_model()
-        self.initialize_camera()
-        self.initialize_fps_manager()
 
     def initialize_labels(self):
         with open(LABEL_MAP_FILE) as f:
@@ -92,21 +90,30 @@ class Demo:
         color = (30, 255, 30)  # Green color
         thickness = 2
 
+        frame_height, frame_width, _ = original_frame.shape
+
         for box, score, cls_id in zip(boxes, scores, classes):
             x1, y1, x2, y2 = box
-            x1 = int(x1 * self.cam_width)
-            y1 = int(y1 * self.cam_height)
-            x2 = int(x2 * self.cam_width)
-            y2 = int(y2 * self.cam_height)
+            x1 = int(x1 * frame_width)
+            y1 = int(y1 * frame_height)
+            x2 = int(x2 * frame_width)
+            y2 = int(y2 * frame_height)
 
             prediction_text = f'{self.labels[cls_id]} ({str(round(score, 3))})'
 
-            cv2.putText(original_frame, prediction_text, (x1 - size * 2, y1 - size * 2), font, size, color, thickness)
+            cv2.putText(original_frame, prediction_text, (int(x1 - size * 2), int(y1 - size * 2)), font, size, color, thickness)
             cv2.rectangle(original_frame, (x1, y1), (x2, y2), color, thickness)
 
+        return original_frame
+
     def display_predictions(self, boxes, scores, classes, original_frame):
-        self.draw_on_frame(boxes, scores, classes, original_frame)
+        original_frame = self.draw_on_frame(boxes, scores, classes, original_frame)
         cv2.imshow('Object Detection', original_frame)
+
+    def draw_to_file(self, boxes, scores, classes, original_frame, output_path):
+        original_frame = self.draw_on_frame(boxes, scores, classes, original_frame)
+        cv2.imwrite(output_path, original_frame)
+        print(f'Saved prediction in {output_path}')
 
     def display_fps(self, original_frame):
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -127,9 +134,12 @@ class Demo:
             frame = cv2.imread(test_image)
 
             boxes, scores, classes = self.infer(frame)
-            self.display_predictions(boxes, scores, classes, frame, show=show, output_path=output_path)
+            self.draw_to_file(boxes, scores, classes, frame, output_path)
 
     def run_on_webcam(self):
+        self.initialize_camera()
+        self.initialize_fps_manager()
+
         # start camera loop
         while True:
             ret, frame = self.cam.read()
