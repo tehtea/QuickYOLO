@@ -89,7 +89,7 @@ class Demo:
     def draw_on_frame(self, boxes, scores, classes, original_frame):
         font = cv2.FONT_HERSHEY_SIMPLEX
         size = 0.6
-        color = (255, 0, 0)  # Blue color
+        color = (30, 255, 30)  # Green color
         thickness = 2
 
         for box, score, cls_id in zip(boxes, scores, classes):
