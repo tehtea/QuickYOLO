@@ -1,5 +1,9 @@
 # QuickYOLO
 
+## Demo Video (Click on the image below)
+[![Watch the video](https://img.youtube.com/vi/Gu084hrVNuI/0.jpg)](https://youtu.be/Gu084hrVNuI)
+
+## Description
 This repository is an end-to-end example for training a binarized object detector on the PASCAL VOC dataset, exporting it for inference, and using the exported model in a demo application. 
 
 It is forked from https://github.com/pythonlessons/TensorFlow-2.x-YOLOv3, which had the most comprehensive training pipeline based on TensorFlow 2 that I can find for training a YOLO detector.
